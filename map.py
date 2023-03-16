@@ -1266,13 +1266,17 @@ def add_instances_to_word_doc():
                     except IndexError:
                         # Object has no name
                         inst_name = ""
+                    try: # Get Public IP Address
+                        public_ip = inst['PublicIpAddress']
+                    except KeyError:
+                        public_ip = ""
                     # Build word table rows & cells
                     child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst_name})
                     child_model['table']['rows'][0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['ImageId']})
                     child_model['table']['rows'][0]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['InstanceType']})
                     child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst['Placement']['AvailabilityZone']})
                     child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['PrivateIpAddress']})
-                    child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['PublicIpAddress']})
+                    child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":public_ip})
                     child_model['table']['rows'][2]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst['PlatformDetails']})
                     child_model['table']['rows'][2]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['Architecture']})
                     child_model['table']['rows'][2]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['State']['Name']})
