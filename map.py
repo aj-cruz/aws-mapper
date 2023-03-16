@@ -990,7 +990,7 @@ def add_vpc_peerings_to_word_doc():
     model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     if not topology['vpc_peering_connections']:
-        model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No spacing", "text": "No VPC Peerings"}]},{"merge":None},{"merge":None},{"merge":None}]})
+        model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPC Peerings"}]},{"merge":None},{"merge":None},{"merge":None}]})
     else:
         for rownum, pcx in enumerate(topology['vpc_peering_connections']):
             if rownum > 0: # Inject an empty row to space the data
