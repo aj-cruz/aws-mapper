@@ -986,6 +986,7 @@ def add_nat_gateways_to_word_doc():
     replace_placeholder_with_table(doc_obj, "{{py_ngws}}", table)
 
 def add_vpc_peerings_to_word_doc():
+    jprint(data=topology['vpc_peering_connections'],default=datetime_converter)
     # Create the base table model
     model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
