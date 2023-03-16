@@ -1361,7 +1361,7 @@ if __name__ == "__main__":
 
         filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
 
-        rprint("\n\n[yellow]STEP 5/6: BUILD WORD DOCUMENT OBJECT")
+        rprint("\n\n[yellow]STEP 6/7: BUILD WORD DOCUMENT OBJECT")
         doc_obj = create_word_obj_from_template(word_template)
         rprint("[yellow]    Creating VPC table...")
         add_vpcs_to_word_doc()
@@ -1398,7 +1398,7 @@ if __name__ == "__main__":
         rprint("[yellow]    Creating EC2 Instances table...")
         add_instances_to_word_doc()
 
-        rprint("\n\n[yellow]STEP 6/6: WRITING ARTIFACTS TO FILE SYSTEM")
+        rprint("\n\n[yellow]STEP 7/7: WRITING ARTIFACTS TO FILE SYSTEM")
         rprint("    [yellow]Saving Word document...")
         try:
             doc_obj.save(output_file)
