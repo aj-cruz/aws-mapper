@@ -221,7 +221,6 @@ def add_transit_gateways_to_topology():
                     tgw['route_tables'] = rts
                 topology[region]['transit_gateways'] = tgws
             except botocore.exceptions.ClientError as e:
-                print(dir(e))
                 if "(UnauthorizedOperation)" in str(e):
                     rprint(f"[red]Unauthorized Operation reported while pulling Transit Gatways from {region}. Skipping...")
                 else:
@@ -340,7 +339,11 @@ def add_routes_to_word_doc():
                         row_color = alternating_row_color
                     else:
                         row_color = None
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['DestinationCidrBlock']}]})
+                    try: # Get Destination CIDR Block
+                        dst_cidr = route['DestinationCidrBlock']
+                    except KeyError:
+                        dst_cidr = ""
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":dst_cidr}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['GatewayId']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Origin']}]})
                     # inject the row of cells into the table model
