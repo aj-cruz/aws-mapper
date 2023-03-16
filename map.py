@@ -165,13 +165,12 @@ def add_vpcs_to_topology():
         ec2 = boto3.client('ec2',region_name=region,verify=False)
         try:
             response = ec2.describe_vpcs()['Vpcs']
+            for vpc in response:
+                is_empty_default_vpc = fingerprint_vpc(region, vpc, ec2)
+                if not is_empty_default_vpc:
+                    topology[region]['vpcs'].append(vpc)
         except botocore.exceptions.ClientError:
             rprint(f":x: [red]Client Error reported for region {region}. Most likely no VPCs exist, continuing...")
-            break
-        for vpc in response:
-            is_empty_default_vpc = fingerprint_vpc(region, vpc, ec2)
-            if not is_empty_default_vpc:
-                topology[region]['vpcs'].append(vpc)
 
 def add_network_elements_to_vpcs():
     for k, v in topology.items():
