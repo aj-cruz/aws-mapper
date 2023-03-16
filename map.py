@@ -17,7 +17,7 @@ table_header_color = "506279"
 new_section_color = "8FD400" # CC Green/Lime
 new_section_color2 = "F12938" # CC Red
 alternating_row_color = "D5DCE4"
-region_list = ["us-west-1", "us-east-2"] # Leave blank to auto-pull and check all regions
+region_list = [] # Leave blank to auto-pull and check all regions
 aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "-1": "All Traffic",
     "6": "TCP",
