@@ -1,4 +1,4 @@
-import boto3, botocore.exceptions, requests, sys, datetime, json, os
+import boto3, botocore.exceptions, requests, sys, datetime, json, os, argparse
 from rich import print as rprint
 from rich import print_json as jprint
 from docx import Document
@@ -7,6 +7,17 @@ from copy import deepcopy
 import word_table_models
 from urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+
+# SET COMMANDLINE ARGUMENT PARAMETERS
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    '-t',
+    action='store_true',
+    default=False,
+    dest='skip_topology',
+    help='Skip bulding topology file from AWS API (it already exists in working directory)'
+    )
+args = parser.parse_args()
 
 # GLOBAL VARIABLES
 output_verbosity = 1   # 0 (Default) or 1 (Verbose)
@@ -390,11 +401,11 @@ def add_subnets_to_word_doc():
                     subnet_name = ""
                 # Get Route Table
                 try:
-                    route_table = [rt['RouteTableId'] for rt in ec2.describe_route_tables()['RouteTables'] if rt['VpcId'] == vpc['VpcId'] for assoc in rt['Associations'] if "SubnetId" in assoc.keys() and assoc['SubnetId'] == subnet['SubnetId']][0]
+                    route_table = [rt['RouteTableId'] for rt in vpc['route_tables'] for assoc in rt['Associations'] if "SubnetId" in assoc.keys() and assoc['SubnetId'] == subnet['SubnetId']][0]
                 except IndexError:
                     route_table = ""
                 # Get Network ACLs
-                net_acls = [assoc['NetworkAclId'] for acl in ec2.describe_network_acls()['NetworkAcls'] if acl['VpcId'] == vpc['VpcId'] for assoc in acl['Associations'] if assoc['SubnetId'] == subnet['SubnetId']]
+                net_acls = [assoc['NetworkAclId'] for acl in vpc['network_acls'] for assoc in acl['Associations'] if assoc['SubnetId'] == subnet['SubnetId']]
                 this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['CidrBlock']}]})
                 this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet_name}]})
                 this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['AvailabilityZone']}]})
@@ -829,42 +840,43 @@ def add_internet_gateways_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        this_parent_tbl_rows_cells = []
-        # Create the parent table row and cells
-        this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
-        # inject the row of cells into the table model
-        parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-        # Build the child table
-        child_model = deepcopy(word_table_models.igw_tbl)
-        for vpc in vpcs:
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            for rownum, igw in enumerate(vpc['internet_gateways'], start=1):
-                this_rows_cells = []
-                # Shade every other row for readability
-                if not (rownum % 2) == 0:
-                    row_color = alternating_row_color
-                else:
-                    row_color = None
-                try: # Get IGW name
-                    igw_name = [tag['Value'] for tag in igw['Tags'] if tag['Key'] == "Name"][0]
+        if vpcs:
+            this_parent_tbl_rows_cells = []
+            # Create the parent table row and cells
+            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
+            # inject the row of cells into the table model
+            parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+            # Build the child table
+            child_model = deepcopy(word_table_models.igw_tbl)
+            for rownum, vpc in enumerate(vpcs, start=1):
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    igw_name = ""
-                except IndexError:
-                    # Object has no name
-                    igw_name = ""
-                # Build word table rows & cells
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc_name}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":igw_name}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":igw['InternetGatewayId']}]})
-                # inject the row of cells into the table model
-                child_model['table']['rows'].append({"cells":this_rows_cells})
-        # Add the child table to the parent table
-        parent_model['table']['rows'].append({"cells":[child_model]})
+                    vpc_name = ""
+                for igw in vpc['internet_gateways']:
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    try: # Get IGW name
+                        igw_name = [tag['Value'] for tag in igw['Tags'] if tag['Key'] == "Name"][0]
+                    except KeyError:
+                        # Object has no name
+                        igw_name = ""
+                    except IndexError:
+                        # Object has no name
+                        igw_name = ""
+                    # Build word table rows & cells
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":igw_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":igw['InternetGatewayId']}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+            # Add the child table to the parent table
+            parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_igws}}", table)
@@ -874,42 +886,43 @@ def add_egress_only_internet_gateways_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        this_parent_tbl_rows_cells = []
-        # Create the parent table row and cells
-        this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
-        # inject the row of cells into the table model
-        parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-        # Build the child table
-        child_model = deepcopy(word_table_models.eigw_tbl)
-        for vpc in vpcs:
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            for rownum, igw in enumerate(vpc['egress_only_internet_gateways'], start=1):
-                this_rows_cells = []
-                # Shade every other row for readability
-                if not (rownum % 2) == 0:
-                    row_color = alternating_row_color
-                else:
-                    row_color = None
-                try: # Get IGW name
-                    igw_name = [tag['Value'] for tag in igw['Tags'] if tag['Key'] == "Name"][0]
+        if vpcs:
+            this_parent_tbl_rows_cells = []
+            # Create the parent table row and cells
+            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
+            # inject the row of cells into the table model
+            parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+            # Build the child table
+            child_model = deepcopy(word_table_models.eigw_tbl)
+            for vpc in vpcs:
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    igw_name = ""
-                except IndexError:
-                    # Object has no name
-                    igw_name = ""
-                # Build word table rows & cells
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc_name}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":igw_name}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":igw['EgressOnlyInternetGatewayId']}]})
-                # inject the row of cells into the table model
-                child_model['table']['rows'].append({"cells":this_rows_cells})
-        # Add the child table to the parent table
-        parent_model['table']['rows'].append({"cells":[child_model]})
+                    vpc_name = ""
+                for rownum, igw in enumerate(vpc['egress_only_internet_gateways'], start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    try: # Get IGW name
+                        igw_name = [tag['Value'] for tag in igw['Tags'] if tag['Key'] == "Name"][0]
+                    except KeyError:
+                        # Object has no name
+                        igw_name = ""
+                    except IndexError:
+                        # Object has no name
+                        igw_name = ""
+                    # Build word table rows & cells
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":igw_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":igw['EgressOnlyInternetGatewayId']}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+            # Add the child table to the parent table
+            parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_eigws}}", table)
@@ -919,68 +932,69 @@ def add_nat_gateways_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        this_parent_tbl_rows_cells = []
-        # Create the parent table row and cells
-        this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
-        # inject the row of cells into the table model
-        parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-        # Build the child table
-        child_model = deepcopy(word_table_models.ngw_tbl)
-        for vpc in vpcs:
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            for rownum, ngw in enumerate(vpc['nat_gateways'], start=1):
-                this_rows_cells = []
-                # Shade every other row for readability
-                if not (rownum % 2) == 0:
-                    row_color = alternating_row_color
-                else:
-                    row_color = None
-                try: # Get IGW name
-                    ngw_name = [tag['Value'] for tag in ngw['Tags'] if tag['Key'] == "Name"][0]
+        if vpcs:
+            this_parent_tbl_rows_cells = []
+            # Create the parent table row and cells
+            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
+            # inject the row of cells into the table model
+            parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+            # Build the child table
+            child_model = deepcopy(word_table_models.ngw_tbl)
+            for vpc in vpcs:
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    ngw_name = ""
-                except IndexError:
-                    # Object has no name
-                    ngw_name = ""
-                # Build word table rows & cells
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc_name}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ngw_name}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ngw['NatGatewayId']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ngw['SubnetId']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ngw['ConnectivityType']}]})
-                # inject the row of cells into the table model
-                child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Add the Addresses header
-                child_model['table']['rows'].append({"cells":[{"background": table_header_color,"paragraphs": [{"style": "regularbold", "text": "ADDRESSES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
-                # Build the address table
-                address_model = deepcopy(word_table_models.ngw_address_tbl)
-                for rownum2, address in enumerate(ngw['NatGatewayAddresses']):
-                    address_rows_cells = []
+                    vpc_name = ""
+                for rownum, ngw in enumerate(vpc['nat_gateways'], start=1):
+                    this_rows_cells = []
                     # Shade every other row for readability
-                    if not (rownum2 % 2) == 0:
-                        address_row_color = alternating_row_color
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
                     else:
-                        address_row_color = None
-                    # Get Public IP
-                    public_ip = address['PublicIp'] if any("PublicIp" in key for key in address) else ""
-                    # Convert IsPrimary key from bool to string
-                    is_primary = "True" if address['IsPrimary'] else "False"
+                        row_color = None
+                    try: # Get IGW name
+                        ngw_name = [tag['Value'] for tag in ngw['Tags'] if tag['Key'] == "Name"][0]
+                    except KeyError:
+                        # Object has no name
+                        ngw_name = ""
+                    except IndexError:
+                        # Object has no name
+                        ngw_name = ""
                     # Build word table rows & cells
-                    address_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":public_ip}]})
-                    address_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":address['PrivateIp']}]})
-                    address_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":address['NetworkInterfaceId']}]})
-                    address_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":is_primary}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ngw_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ngw['NatGatewayId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ngw['SubnetId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ngw['ConnectivityType']}]})
                     # inject the row of cells into the table model
-                    address_model['table']['rows'].append({"cells":address_rows_cells})
-                # Add the address table to the child table
-                child_model['table']['rows'].append({"cells":[address_model,{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
-        # Add the child table to the parent table
-        parent_model['table']['rows'].append({"cells":[child_model]})
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                    # Add the Addresses header
+                    child_model['table']['rows'].append({"cells":[{"background": table_header_color,"paragraphs": [{"style": "regularbold", "text": "ADDRESSES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                    # Build the address table
+                    address_model = deepcopy(word_table_models.ngw_address_tbl)
+                    for rownum2, address in enumerate(ngw['NatGatewayAddresses']):
+                        address_rows_cells = []
+                        # Shade every other row for readability
+                        if not (rownum2 % 2) == 0:
+                            address_row_color = alternating_row_color
+                        else:
+                            address_row_color = None
+                        # Get Public IP
+                        public_ip = address['PublicIp'] if any("PublicIp" in key for key in address) else ""
+                        # Convert IsPrimary key from bool to string
+                        is_primary = "True" if address['IsPrimary'] else "False"
+                        # Build word table rows & cells
+                        address_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":public_ip}]})
+                        address_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":address['PrivateIp']}]})
+                        address_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":address['NetworkInterfaceId']}]})
+                        address_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":is_primary}]})
+                        # inject the row of cells into the table model
+                        address_model['table']['rows'].append({"cells":address_rows_cells})
+                    # Add the address table to the child table
+                    child_model['table']['rows'].append({"cells":[address_model,{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+            # Add the child table to the parent table
+            parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_ngws}}", table)
@@ -1245,15 +1259,15 @@ def add_instances_to_word_doc():
                 # Object has no name
                 vpc_name = ""
             # Create the parent table row and cells
-            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
+            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} ({len(vpc['ec2_instances'])} Instances)"}]})
             # inject the row of cells into the table model
             parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
             # Build the child table
             if not vpc['ec2_instances']:
                 parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":"No EC2 Instances"}]}]})
             else:
-                for rownum, inst in enumerate(vpc['ec2_instances']):
-                    if rownum > 0: # inject space between instance tables
+                for rownum, inst in enumerate(vpc['ec2_instances'], start=1):
+                    if rownum > 1: # inject space between instance tables
                         parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":""}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                     child_model = deepcopy(word_table_models.ec2_inst_tbl)
                     try: # Get Instance name
@@ -1285,7 +1299,7 @@ def add_instances_to_word_doc():
                         child_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Network Interfaces"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                     else:
                         child_model['table']['rows'].append(word_table_models.ec2_inst_interface_tbl_header)
-                        for rownum2, intf in enumerate(inst['NetworkInterfaces'], start=1):
+                        for rownum2, intf in enumerate(sorted(inst['NetworkInterfaces'], key=lambda d : d['Attachment']['DeviceIndex']), start=1):
                             this_rows_cells = []
                             # Shade every other row for readability
                             if not (rownum2 % 2) == 0:
@@ -1315,25 +1329,28 @@ def add_instances_to_word_doc():
 
 if __name__ == "__main__":
     try:
-        # Setup
-        ec2 = boto3.client('ec2', verify=False)
-        available_regions = get_regions()
-        topology = {}
-        add_regions_to_topology()
+        if not args.skip_topology:
+            ec2 = boto3.client('ec2', verify=False)
+            available_regions = get_regions()
+            topology = {}
+            add_regions_to_topology()
 
-        rprint("\n[yellow]STEP 1/6: DISCOVER REGION VPCS")
-        add_vpcs_to_topology()
+            rprint("\n[yellow]STEP 1/6: DISCOVER REGION VPCS")
+            add_vpcs_to_topology()
 
-        rprint("\n\n[yellow]STEP 2/6: DISCOVER VPC NETWORK ELEMENTS")
-        add_network_elements_to_vpcs()
+            rprint("\n\n[yellow]STEP 2/6: DISCOVER VPC NETWORK ELEMENTS")
+            add_network_elements_to_vpcs()
 
-        rprint("\n\n[yellow]STEP 3/6: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
-        add_vpc_peering_connections_to_topology()
+            rprint("\n\n[yellow]STEP 3/6: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
+            add_vpc_peering_connections_to_topology()
 
-        rprint("\n\n[yellow]STEP 4/6: DISCOVERING TRANSIT GATEWAYS")
-        add_transit_gateways_to_topology()
+            rprint("\n\n[yellow]STEP 4/6: DISCOVERING TRANSIT GATEWAYS")
+            add_transit_gateways_to_topology()
+        else:
+            with open(topology_file, "r") as f:
+                topology = json.load(f)
 
-        filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in ["vpc_peering_connections", "transit_gateways"]}
+        filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in ["vpc_peering_connections"]}
 
         rprint("\n\n[yellow]STEP 5/6: BUILD WORD DOCUMENT OBJECT")
         doc_obj = create_word_obj_from_template(word_template)
