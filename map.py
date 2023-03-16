@@ -36,6 +36,7 @@ aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "1": "ICMPv4",
     "58": "ICMPv6"
 }
+non_region_topology_keys = ["vpc_peering_connections", "direct_connect"]
 
 # HELPER FUNCTIONS
 def datetime_converter(obj):
@@ -185,7 +186,7 @@ def add_vpcs_to_topology():
 
 def add_network_elements_to_vpcs():
     for k, v in topology.items():
-        if not k in ["vpc_peering_connections"]: # Ignore these keys, all the rest are regions
+        if not k in non_region_topology_keys: # Ignore these keys, all the rest are regions
             ec2 = boto3.client('ec2',region_name=k,verify=False)
             for vpc in v['vpcs']:
                 rprint(f"    [yellow]Discovering network elements (subnets, route tables, etc.) for {k}/{vpc['VpcId']}...")
@@ -218,9 +219,14 @@ def add_vpc_peering_connections_to_topology():
     pcx = [conn for conn in ec2.describe_vpc_peering_connections()['VpcPeeringConnections']]
     topology['vpc_peering_connections'] = pcx
 
+def add_direct_connect_to_topology():
+    ec2dx = boto3.client('directconnect', verify=False)
+    dx = [dx for dx in ec2dx.describe_connections()['connections']]
+    topology['direct_connect'] = dx
+
 def add_transit_gateways_to_topology():
     for region in topology:
-        if not region == "vpc_peering_connections": # Ignore this dictionary key, it's not a region, all others are regions
+        if not region in non_region_topology_keys: # Ignore these dictionary keys, they're not a region, all others are regions
             rprint(f"    [yellow]Interrogating Region {region} for Transit Gateways...")
             ec2 = boto3.client('ec2',region_name=region,verify=False)
             try:
@@ -1049,7 +1055,7 @@ def add_transit_gateways_to_word_doc():
     model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, attributes in topology.items():
-        if not region == "vpc_peering_connections": # Ignore this dictionary key, it is not a region
+        if not region in non_region_topology_keys: # Ignore these dictionary keys, they are not a region
             for rownum, tgw in enumerate(attributes['transit_gateways']):
                 # Create Table title (Region)
                 model['table']['rows'].append({"cells": [{"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]}]})
@@ -1321,8 +1327,8 @@ def add_instances_to_word_doc():
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(intf['Attachment']['DeviceIndex'])}]})
                             # inject cells into the child table row
                             child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Add the child table to the parent table
-                parent_model['table']['rows'].append({"cells":[child_model]})
+                    # Add the child table to the parent table
+                    parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_ec2_inst}}", table)
@@ -1335,22 +1341,25 @@ if __name__ == "__main__":
             topology = {}
             add_regions_to_topology()
 
-            rprint("\n[yellow]STEP 1/6: DISCOVER REGION VPCS")
+            rprint("\n[yellow]STEP 1/7: DISCOVER REGION VPCS")
             add_vpcs_to_topology()
 
-            rprint("\n\n[yellow]STEP 2/6: DISCOVER VPC NETWORK ELEMENTS")
+            rprint("\n\n[yellow]STEP 2/7: DISCOVER VPC NETWORK ELEMENTS")
             add_network_elements_to_vpcs()
 
-            rprint("\n\n[yellow]STEP 3/6: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
+            rprint("\n\n[yellow]STEP 3/7: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
             add_vpc_peering_connections_to_topology()
 
-            rprint("\n\n[yellow]STEP 4/6: DISCOVERING TRANSIT GATEWAYS")
+            rprint("\n\n[yellow]STEP 4/7: DISCOVERING TRANSIT GATEWAYS")
             add_transit_gateways_to_topology()
+
+            rprint("\n\n[yellow]STEP 5/7: DISCOVERING DIRECT CONNECT")
+            add_direct_connect_to_topology()
         else:
             with open(topology_file, "r") as f:
                 topology = json.load(f)
 
-        filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in ["vpc_peering_connections"]}
+        filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
 
         rprint("\n\n[yellow]STEP 5/6: BUILD WORD DOCUMENT OBJECT")
         doc_obj = create_word_obj_from_template(word_template)
