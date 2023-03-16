@@ -986,46 +986,48 @@ def add_nat_gateways_to_word_doc():
     replace_placeholder_with_table(doc_obj, "{{py_ngws}}", table)
 
 def add_vpc_peerings_to_word_doc():
-    jprint(data=topology['vpc_peering_connections'],default=datetime_converter)
     # Create the base table model
     model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for rownum, pcx in enumerate(topology['vpc_peering_connections']):
-        if rownum > 0: # Inject an empty row to space the data
-            model['table']['rows'].append({"cells":[]})
-        this_rows_requester_cells = []
-        this_rows_accepter_cells = []
-        try: # Get VPC Peering name
-            pcx_name = [tag['Value'] for tag in pcx['Tags'] if tag['Key'] == "Name"][0]
-        except KeyError:
-            # Object has no name
-            pcx_name = ""
-        except IndexError:
-            # Object has no name
-            pcx_name = ""
-        # Create child table model & populate header row with data
-        child_model = deepcopy(word_table_models.vpc_peering_requester_tbl)
-        child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":pcx_name})
-        child_model['table']['rows'][0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":pcx['VpcPeeringConnectionId']})
-        # Populate requester data row with data
-        this_rows_requester_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['RequesterVpcInfo']['Region']}]})
-        this_rows_requester_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['RequesterVpcInfo']['VpcId']}]})
-        this_rows_requester_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['RequesterVpcInfo']['CidrBlock']}]})
-        this_rows_requester_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['RequesterVpcInfo']['OwnerId']}]})
-        # inject the requester row of cells into the child table model
-        child_model['table']['rows'].append({"cells":this_rows_requester_cells})
-        # Populate accepter data row with data
-        this_rows_accepter_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['AccepterVpcInfo']['Region']}]})
-        this_rows_accepter_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['AccepterVpcInfo']['VpcId']}]})
-        this_rows_accepter_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['AccepterVpcInfo']['CidrBlock']}]})
-        this_rows_accepter_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['AccepterVpcInfo']['OwnerId']}]})
-        # inject the accepter header cells and data row of cells into the child table model
-        child_model['table']['rows'].append(word_table_models.vpc_peering_accepter_tbl_header)
-        child_model['table']['rows'].append({"cells":this_rows_accepter_cells})
-        # Add child model to parent table model
-        model['table']['rows'].append({"cells":[child_model]})
-    # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, model)
+    if not topology['vpc_peering_connections']:
+        model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No spacing", "text": "No VPC Peerings"}]},{"merge":None},{"merge":None},{"merge":None}]})
+    else:
+        for rownum, pcx in enumerate(topology['vpc_peering_connections']):
+            if rownum > 0: # Inject an empty row to space the data
+                model['table']['rows'].append({"cells":[]})
+            this_rows_requester_cells = []
+            this_rows_accepter_cells = []
+            try: # Get VPC Peering name
+                pcx_name = [tag['Value'] for tag in pcx['Tags'] if tag['Key'] == "Name"][0]
+            except KeyError:
+                # Object has no name
+                pcx_name = ""
+            except IndexError:
+                # Object has no name
+                pcx_name = ""
+            # Create child table model & populate header row with data
+            child_model = deepcopy(word_table_models.vpc_peering_requester_tbl)
+            child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":pcx_name})
+            child_model['table']['rows'][0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":pcx['VpcPeeringConnectionId']})
+            # Populate requester data row with data
+            this_rows_requester_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['RequesterVpcInfo']['Region']}]})
+            this_rows_requester_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['RequesterVpcInfo']['VpcId']}]})
+            this_rows_requester_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['RequesterVpcInfo']['CidrBlock']}]})
+            this_rows_requester_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['RequesterVpcInfo']['OwnerId']}]})
+            # inject the requester row of cells into the child table model
+            child_model['table']['rows'].append({"cells":this_rows_requester_cells})
+            # Populate accepter data row with data
+            this_rows_accepter_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['AccepterVpcInfo']['Region']}]})
+            this_rows_accepter_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['AccepterVpcInfo']['VpcId']}]})
+            this_rows_accepter_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['AccepterVpcInfo']['CidrBlock']}]})
+            this_rows_accepter_cells.append({"paragraphs":[{"style":"No Spacing","text":pcx['AccepterVpcInfo']['OwnerId']}]})
+            # inject the accepter header cells and data row of cells into the child table model
+            child_model['table']['rows'].append(word_table_models.vpc_peering_accepter_tbl_header)
+            child_model['table']['rows'].append({"cells":this_rows_accepter_cells})
+            # Add child model to parent table model
+            model['table']['rows'].append({"cells":[child_model]})
+        # Model has been build, now convert it to a python-docx Word table object
+        table = build_table(doc_obj, model)
     replace_placeholder_with_table(doc_obj, "{{py_pcx}}", table)
 
 def add_transit_gateways_to_word_doc():
