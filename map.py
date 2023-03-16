@@ -1026,8 +1026,8 @@ def add_vpc_peerings_to_word_doc():
             child_model['table']['rows'].append({"cells":this_rows_accepter_cells})
             # Add child model to parent table model
             model['table']['rows'].append({"cells":[child_model]})
-        # Model has been build, now convert it to a python-docx Word table object
-        table = build_table(doc_obj, model)
+    # Model has been build, now convert it to a python-docx Word table object
+    table = build_table(doc_obj, model)
     replace_placeholder_with_table(doc_obj, "{{py_pcx}}", table)
 
 def add_transit_gateways_to_word_doc():
