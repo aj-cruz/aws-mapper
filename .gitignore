@@ -1,0 +1,7 @@
+venv-*
+*.json
+*.log
+~$*
+AWS As-Built.docx
+__pycache__
+dcnet_msofficetools

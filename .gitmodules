@@ -1,0 +1,4 @@
+[submodule "dcnet_msofficetools"]
+	path = dcnet_msofficetools
+	url = https://github.com/ptshub/dcnet_msofficetools.git
+	ignore = dirty
