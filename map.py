@@ -1093,11 +1093,15 @@ def add_transit_gateways_to_word_doc():
                     except IndexError:
                         # Object has no name
                         attch_name = ""
+                    try: # Get TGW Route Table ID
+                        rt_id = attch['Association']['TransitGatewayRouteTableId']
+                    except KeyError:
+                        rt_id = ""
                     # Add data to row/cells
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch_name}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['ResourceType']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['ResourceId']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['Association']['TransitGatewayRouteTableId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt_id}]})
                     # add attachment data row to child table model
                     child_model['table']['rows'].append({"cells":this_rows_cells})
                 # Populate child table with route tables
