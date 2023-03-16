@@ -221,7 +221,7 @@ def add_transit_gateways_to_topology():
                     tgw['route_tables'] = rts
                 topology[region]['transit_gateways'] = tgws
             except botocore.exceptions.ClientError as e:
-                if "(UnauthorizedOperation)" in e:
+                if "(UnauthorizedOperation)" in e.text:
                     rprint(f"[red]Unauthorized Operation reported while pulling Transit Gatways from {region}. Skipping...")
 
 # BUILD WORD TABLE FUNCTIONS
