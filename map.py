@@ -343,8 +343,12 @@ def add_routes_to_word_doc():
                         dst_cidr = route['DestinationCidrBlock']
                     except KeyError:
                         dst_cidr = ""
+                    try: # Get Gateway ID
+                        gw_id = route['GatewayId']
+                    except KeyError:
+                        gw_id = ""
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":dst_cidr}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['GatewayId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":gw_id}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Origin']}]})
                     # inject the row of cells into the table model
                     child_model['table']['rows'].append({"cells":this_rows_cells})
