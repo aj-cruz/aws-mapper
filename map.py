@@ -1096,8 +1096,6 @@ def add_transit_gateways_to_word_doc():
                     # add route table header row to child table model
                     child_model['table']['rows'].append(rt_header)
                 # Add child model to parent table model
-                with open("temp.json", "w") as f:
-                    f.write(json.dumps(child_model,indent=4))
                 model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, model)
