@@ -9,7 +9,7 @@ from urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 # GLOBAL VARIABLES
-output_verbosity = 0   # 0 (Default) or 1 (Verbose)
+output_verbosity = 1   # 0 (Default) or 1 (Verbose)
 topology_file = "topology.json"
 word_template = "template.docx"
 output_file = "AWS As-Built.docx"
@@ -45,7 +45,9 @@ def get_regions():
         return region_list
     else:
         response = ec2.describe_regions()
-        return [x['RegionName'] for x in response['Regions']]
+        discovered_regions = [x['RegionName'] for x in response['Regions']]
+        print(f"Discovered Regions: {discovered_regions}")
+        return discovered_regions
 
 def add_regions_to_topology():
     for region in available_regions:
@@ -211,13 +213,17 @@ def add_transit_gateways_to_topology():
         if not region == "vpc_peering_connections": # Ignore this dictionary key, it's not a region, all others are regions
             rprint(f"    [yellow]Interrogating Region {region} for Transit Gateways...")
             ec2 = boto3.client('ec2',region_name=region,verify=False)
-            tgws = [tgw for tgw in ec2.describe_transit_gateways()['TransitGateways']]
-            for tgw in tgws:
-                attachments = [attachment for attachment in ec2.describe_transit_gateway_attachments()['TransitGatewayAttachments'] if attachment['TransitGatewayId'] == tgw['TransitGatewayId']]
-                tgw['attachments'] = attachments
-                rts = [rt for rt in ec2.describe_transit_gateway_route_tables()['TransitGatewayRouteTables'] if rt['TransitGatewayId'] == tgw['TransitGatewayId']]
-                tgw['route_tables'] = rts
-            topology[region]['transit_gateways'] = tgws
+            try:
+                tgws = [tgw for tgw in ec2.describe_transit_gateways()['TransitGateways']]
+                for tgw in tgws:
+                    attachments = [attachment for attachment in ec2.describe_transit_gateway_attachments()['TransitGatewayAttachments'] if attachment['TransitGatewayId'] == tgw['TransitGatewayId']]
+                    tgw['attachments'] = attachments
+                    rts = [rt for rt in ec2.describe_transit_gateway_route_tables()['TransitGatewayRouteTables'] if rt['TransitGatewayId'] == tgw['TransitGatewayId']]
+                    tgw['route_tables'] = rts
+                topology[region]['transit_gateways'] = tgws
+            except botocore.exceptions.ClientError as e:
+                if "(UnauthorizedOperation)" in e:
+                    rprint(f"[red]Unauthorized Operation reported while pulling Transit Gatways from {region}. Skipping...")
 
 # BUILD WORD TABLE FUNCTIONS
 def add_vpcs_to_word_doc():
