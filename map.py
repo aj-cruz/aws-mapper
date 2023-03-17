@@ -36,7 +36,7 @@ aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "1": "ICMPv4",
     "58": "ICMPv6"
 }
-non_region_topology_keys = ["vpc_peering_connections", "direct_connect"]
+non_region_topology_keys = ["account_id", "vpc_peering_connections", "direct_connect"]
 
 # HELPER FUNCTIONS
 def datetime_converter(obj):
@@ -1056,9 +1056,9 @@ def add_transit_gateways_to_word_doc():
     # Populate the table model with data
     for region, attributes in topology.items():
         if not region in non_region_topology_keys: # Ignore these dictionary keys, they are not a region
+            # Create Table title (Region)
+            model['table']['rows'].append({"cells": [{"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]}]})
             for rownum, tgw in enumerate(attributes['transit_gateways']):
-                # Create Table title (Region)
-                model['table']['rows'].append({"cells": [{"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]}]})
                 if rownum > 0: # Inject an empty row to space the data
                     model['table']['rows'].append({"cells":[]})
                 try: # Get TGW name
@@ -1074,7 +1074,7 @@ def add_transit_gateways_to_word_doc():
                 child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":tgw_name})
                 child_model['table']['rows'][0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":tgw['TransitGatewayId']})
                 child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":str(tgw['Options']['AmazonSideAsn'])})
-                child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":tgw['OwnerId']})
+                child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing" if tgw['OwnerId'] == topology['account_id'] else "redtext","text":tgw['OwnerId']})
                 # Populate child table model with attachment header
                 child_model['table']['rows'].append(word_table_models.tgw_attachment_tbl_header)
                 # Populate child table with attachments
@@ -1343,6 +1343,8 @@ if __name__ == "__main__":
             ec2 = boto3.client('ec2', verify=False)
             available_regions = get_regions()
             topology = {}
+            topology['account_id'] = boto3.client('sts').get_caller_identity().get('Account')
+
             add_regions_to_topology()
 
             rprint("\n[yellow]STEP 1/7: DISCOVER REGION VPCS")
