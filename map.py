@@ -423,6 +423,8 @@ def add_subnets_to_word_doc():
             # Add the child table to the parent table
             parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
+    with open("table.json", "w") as f:
+        f.write(json.dumps(parent_model,indent=4))
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_subnets}}", table)
 
