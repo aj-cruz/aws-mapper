@@ -257,8 +257,15 @@ def add_vpcs_to_word_doc():
             row_color = alternating_row_color
         else:
             row_color = None
+        try:
+            vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
+        except KeyError:
+            # Object has no name
+            vpc_name = ""
+        except IndexError:
+            vpc_name = ""
         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc['region']}]})
-        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":[tag['Value'] for tag in vpc['vpc']['Tags'] if tag['Key'] == "Name"][0]}]})
+        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc_name}]})
         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc['vpc']['CidrBlock']}]})
         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc['vpc']['VpcId']}]})
         # inject the row of cells into the table model
@@ -281,6 +288,8 @@ def add_route_tables_to_word_doc():
                     vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
+                    vpc_name = ""
+                except IndexError
                     vpc_name = ""
                 # Create the parent table row and cells
                 this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
