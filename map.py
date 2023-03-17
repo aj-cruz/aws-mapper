@@ -272,53 +272,56 @@ def add_route_tables_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            this_parent_tbl_rows_cells = []
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            # Create the parent table row and cells
-            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
-            # inject the row of cells into the table model
-            parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-            # Build the child table
-            child_model = deepcopy(word_table_models.rt_tbl)
-            for rownum, rt in enumerate(vpc['route_tables'], start=1):
-                this_rows_cells = []
-                # Shade every other row for readability
-                if not (rownum % 2) == 0:
-                    row_color = alternating_row_color
-                else:
-                    row_color = None
-                try: # Get Route Table name
-                    rt_name = [tag['Value'] for tag in rt['Tags'] if tag['Key'] == "Name"][0]
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                this_parent_tbl_rows_cells = []
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    rt_name = ""
-                except IndexError:
-                    # Object has no name
-                    rt_name = ""
-                # Get number of routes
-                route_qty = len(rt['Routes'])
-                # Get number of subnet associations
-                subnet_associations = len([assoc for assoc in rt['Associations'] if "SubnetId" in assoc.keys()])
-                # Get number of edge associations
-                edge_associations = len([assoc for assoc in rt['Associations'] if "GatewayId" in assoc.keys()])
-                # Get Route Propagations
-                propagations = [x['GatewayId'] for x in rt['PropagatingVgws']]
-                # Build word table rows & cells
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt_name}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt['RouteTableId']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(route_qty)}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(subnet_associations)}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(edge_associations)}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":propagations}]})
+                    vpc_name = ""
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
                 # inject the row of cells into the table model
-                child_model['table']['rows'].append({"cells":this_rows_cells})
-            # Add the child table to the parent table
-            parent_model['table']['rows'].append({"cells":[child_model]})
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                # Build the child table
+                child_model = deepcopy(word_table_models.rt_tbl)
+                for rownum, rt in enumerate(vpc['route_tables'], start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    try: # Get Route Table name
+                        rt_name = [tag['Value'] for tag in rt['Tags'] if tag['Key'] == "Name"][0]
+                    except KeyError:
+                        # Object has no name
+                        rt_name = ""
+                    except IndexError:
+                        # Object has no name
+                        rt_name = ""
+                    # Get number of routes
+                    route_qty = len(rt['Routes'])
+                    # Get number of subnet associations
+                    subnet_associations = len([assoc for assoc in rt['Associations'] if "SubnetId" in assoc.keys()])
+                    # Get number of edge associations
+                    edge_associations = len([assoc for assoc in rt['Associations'] if "GatewayId" in assoc.keys()])
+                    # Get Route Propagations
+                    propagations = [x['GatewayId'] for x in rt['PropagatingVgws']]
+                    # Build word table rows & cells
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt['RouteTableId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(route_qty)}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(subnet_associations)}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(edge_associations)}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":propagations}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_rts}}", table)
@@ -328,50 +331,53 @@ def add_routes_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            for rt in vpc['route_tables']:
-                this_parent_tbl_rows_cells = []
-                try: # Get Route Table name
-                    rt_name = [tag['Value'] for tag in rt['Tags'] if tag['Key'] == "Name"][0]
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    rt_name = "<unnamed>"
-                except IndexError:
-                    # Object has no name
-                    rt_name = "<unnamed>"
-                # Create the parent table row and cells
-                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} / RT: {rt_name} ({rt['RouteTableId']})"}]})
-                # inject the row of cells into the table model
-                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-                # Build the child table
-                child_model = deepcopy(word_table_models.rt_routes_tbl)
-                for rownum, route in enumerate(rt['Routes'], start=1):
-                    this_rows_cells = []
-                    # Shade every other row for readability
-                    if not (rownum % 2) == 0:
-                        row_color = alternating_row_color
-                    else:
-                        row_color = None
-                    try: # Get Destination CIDR Block
-                        dst_cidr = route['DestinationCidrBlock']
+                    vpc_name = ""
+                for rt in vpc['route_tables']:
+                    this_parent_tbl_rows_cells = []
+                    try: # Get Route Table name
+                        rt_name = [tag['Value'] for tag in rt['Tags'] if tag['Key'] == "Name"][0]
                     except KeyError:
-                        dst_cidr = ""
-                    try: # Get Gateway ID
-                        gw_id = route['GatewayId']
-                    except KeyError:
-                        gw_id = ""
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":dst_cidr}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":gw_id}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Origin']}]})
+                        # Object has no name
+                        rt_name = "<unnamed>"
+                    except IndexError:
+                        # Object has no name
+                        rt_name = "<unnamed>"
+                    # Create the parent table row and cells
+                    this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} / RT: {rt_name} ({rt['RouteTableId']})"}]})
                     # inject the row of cells into the table model
-                    child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Add the child table to the parent table
-                parent_model['table']['rows'].append({"cells":[child_model]})
+                    parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                    # Build the child table
+                    child_model = deepcopy(word_table_models.rt_routes_tbl)
+                    for rownum, route in enumerate(rt['Routes'], start=1):
+                        this_rows_cells = []
+                        # Shade every other row for readability
+                        if not (rownum % 2) == 0:
+                            row_color = alternating_row_color
+                        else:
+                            row_color = None
+                        try: # Get Destination CIDR Block
+                            dst_cidr = route['DestinationCidrBlock']
+                        except KeyError:
+                            dst_cidr = ""
+                        try: # Get Gateway ID
+                            gw_id = route['GatewayId']
+                        except KeyError:
+                            gw_id = ""
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":dst_cidr}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":gw_id}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Origin']}]})
+                        # inject the row of cells into the table model
+                        child_model['table']['rows'].append({"cells":this_rows_cells})
+                    # Add the child table to the parent table
+                    parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_rt_routes}}", table)
@@ -434,47 +440,50 @@ def add_network_acls_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            this_parent_tbl_rows_cells = []
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            # Create the parent table row and cells
-            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
-            # inject the row of cells into the table model
-            parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-            # Build the child table
-            child_model = deepcopy(word_table_models.netacls_tbl)
-            for rownum, acl in enumerate(vpc['network_acls'], start=1):
-                this_rows_cells = []
-                # Shade every other row for readability
-                if not (rownum % 2) == 0:
-                    row_color = alternating_row_color
-                else:
-                    row_color = None
-                try: # Get ACL Table name
-                    acl_name = [tag['Value'] for tag in acl['Tags'] if tag['Key'] == "Name"][0]
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                this_parent_tbl_rows_cells = []
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    acl_name = ""
-                except IndexError:
-                    # Object has no name
-                    acl_name = ""
-                # Get Subnets associated with ACL
-                subnet_associations = [assoc['SubnetId'] for assoc in acl['Associations']]
-                # Get IsDefault status
-                is_default = "yes" if acl['IsDefault'] else "no"
-                # Build word table rows & cells
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":acl_name}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":acl['NetworkAclId']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":is_default}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet_associations}]})
+                    vpc_name = ""
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
                 # inject the row of cells into the table model
-                child_model['table']['rows'].append({"cells":this_rows_cells})
-            # Add the child table to the parent table
-            parent_model['table']['rows'].append({"cells":[child_model]})
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                # Build the child table
+                child_model = deepcopy(word_table_models.netacls_tbl)
+                for rownum, acl in enumerate(vpc['network_acls'], start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    try: # Get ACL Table name
+                        acl_name = [tag['Value'] for tag in acl['Tags'] if tag['Key'] == "Name"][0]
+                    except KeyError:
+                        # Object has no name
+                        acl_name = ""
+                    except IndexError:
+                        # Object has no name
+                        acl_name = ""
+                    # Get Subnets associated with ACL
+                    subnet_associations = [assoc['SubnetId'] for assoc in acl['Associations']]
+                    # Get IsDefault status
+                    is_default = "yes" if acl['IsDefault'] else "no"
+                    # Build word table rows & cells
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":acl_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":acl['NetworkAclId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":is_default}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet_associations}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_netacls}}", table)
@@ -484,53 +493,56 @@ def add_netacl_inbound_entries_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            for acl in vpc['network_acls']:
-                this_parent_tbl_rows_cells = []
-                try: # Get ACL name
-                    acl_name = [tag['Value'] for tag in acl['Tags'] if tag['Key'] == "Name"][0]
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    acl_name = "<unnamed>"
-                except IndexError:
-                    # Object has no name
-                    acl_name = "<unnamed>"
-                # Create the parent table row and cells
-                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} / ACL: {acl_name} ({acl['NetworkAclId']})"}]})
-                # inject the row of cells into the table model
-                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-                # Build the child table
-                inbound_entries = [entry for entry in acl['Entries'] if not entry['Egress']]
-                child_model = deepcopy(word_table_models.netacl_in_entries_tbl)
-                for rownum, entry in enumerate(sorted(inbound_entries, key = lambda d : d['RuleNumber']), start=1):
-                    this_rows_cells = []
-                    # Shade every other row for readability
-                    if not (rownum % 2) == 0:
-                        row_color = alternating_row_color
-                    else:
-                        row_color = None
-                    # Get Port Range
-                    try:
-                        if entry['PortRange']['From'] == entry['PortRange']['To']:
-                            port_range = str(entry['PortRange']['From'])
-                        else:
-                            port_range = f"{entry['PortRange']['From']}-{entry['PortRange']['To']}"
+                    vpc_name = ""
+                for acl in vpc['network_acls']:
+                    this_parent_tbl_rows_cells = []
+                    try: # Get ACL name
+                        acl_name = [tag['Value'] for tag in acl['Tags'] if tag['Key'] == "Name"][0]
                     except KeyError:
-                        port_range = "All"
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(entry['RuleNumber'])}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":aws_protocol_map[entry['Protocol']]}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":port_range}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['CidrBlock']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['RuleAction']}]})
+                        # Object has no name
+                        acl_name = "<unnamed>"
+                    except IndexError:
+                        # Object has no name
+                        acl_name = "<unnamed>"
+                    # Create the parent table row and cells
+                    this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} / ACL: {acl_name} ({acl['NetworkAclId']})"}]})
                     # inject the row of cells into the table model
-                    child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Add the child table to the parent table
-                parent_model['table']['rows'].append({"cells":[child_model]})
+                    parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                    # Build the child table
+                    inbound_entries = [entry for entry in acl['Entries'] if not entry['Egress']]
+                    child_model = deepcopy(word_table_models.netacl_in_entries_tbl)
+                    for rownum, entry in enumerate(sorted(inbound_entries, key = lambda d : d['RuleNumber']), start=1):
+                        this_rows_cells = []
+                        # Shade every other row for readability
+                        if not (rownum % 2) == 0:
+                            row_color = alternating_row_color
+                        else:
+                            row_color = None
+                        # Get Port Range
+                        try:
+                            if entry['PortRange']['From'] == entry['PortRange']['To']:
+                                port_range = str(entry['PortRange']['From'])
+                            else:
+                                port_range = f"{entry['PortRange']['From']}-{entry['PortRange']['To']}"
+                        except KeyError:
+                            port_range = "All"
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(entry['RuleNumber'])}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":aws_protocol_map[entry['Protocol']]}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":port_range}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['CidrBlock']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['RuleAction']}]})
+                        # inject the row of cells into the table model
+                        child_model['table']['rows'].append({"cells":this_rows_cells})
+                    # Add the child table to the parent table
+                    parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_netacl_in_entries}}", table)
@@ -540,53 +552,56 @@ def add_netacl_outbound_entries_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            for acl in vpc['network_acls']:
-                this_parent_tbl_rows_cells = []
-                try: # Get ACL name
-                    acl_name = [tag['Value'] for tag in acl['Tags'] if tag['Key'] == "Name"][0]
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    acl_name = "<unnamed>"
-                except IndexError:
-                    # Object has no name
-                    acl_name = "<unnamed>"
-                # Create the parent table row and cells
-                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} / ACL: {acl_name} ({acl['NetworkAclId']})"}]})
-                # inject the row of cells into the table model
-                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-                # Build the child table
-                outbound_entries = [entry for entry in acl['Entries'] if entry['Egress']]
-                child_model = deepcopy(word_table_models.netacl_in_entries_tbl)
-                for rownum, entry in enumerate(sorted(outbound_entries, key = lambda d : d['RuleNumber']), start=1):
-                    this_rows_cells = []
-                    # Shade every other row for readability
-                    if not (rownum % 2) == 0:
-                        row_color = alternating_row_color
-                    else:
-                        row_color = None
-                    # Get Port Range
-                    try:
-                        if entry['PortRange']['From'] == entry['PortRange']['To']:
-                            port_range = str(entry['PortRange']['From'])
-                        else:
-                            port_range = f"{entry['PortRange']['From']}-{entry['PortRange']['To']}"
+                    vpc_name = ""
+                for acl in vpc['network_acls']:
+                    this_parent_tbl_rows_cells = []
+                    try: # Get ACL name
+                        acl_name = [tag['Value'] for tag in acl['Tags'] if tag['Key'] == "Name"][0]
                     except KeyError:
-                        port_range = "All"
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(entry['RuleNumber'])}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":aws_protocol_map[entry['Protocol']]}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":port_range}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['CidrBlock']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['RuleAction']}]})
+                        # Object has no name
+                        acl_name = "<unnamed>"
+                    except IndexError:
+                        # Object has no name
+                        acl_name = "<unnamed>"
+                    # Create the parent table row and cells
+                    this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} / ACL: {acl_name} ({acl['NetworkAclId']})"}]})
                     # inject the row of cells into the table model
-                    child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Add the child table to the parent table
-                parent_model['table']['rows'].append({"cells":[child_model]})
+                    parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                    # Build the child table
+                    outbound_entries = [entry for entry in acl['Entries'] if entry['Egress']]
+                    child_model = deepcopy(word_table_models.netacl_in_entries_tbl)
+                    for rownum, entry in enumerate(sorted(outbound_entries, key = lambda d : d['RuleNumber']), start=1):
+                        this_rows_cells = []
+                        # Shade every other row for readability
+                        if not (rownum % 2) == 0:
+                            row_color = alternating_row_color
+                        else:
+                            row_color = None
+                        # Get Port Range
+                        try:
+                            if entry['PortRange']['From'] == entry['PortRange']['To']:
+                                port_range = str(entry['PortRange']['From'])
+                            else:
+                                port_range = f"{entry['PortRange']['From']}-{entry['PortRange']['To']}"
+                        except KeyError:
+                            port_range = "All"
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(entry['RuleNumber'])}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":aws_protocol_map[entry['Protocol']]}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":port_range}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['CidrBlock']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['RuleAction']}]})
+                        # inject the row of cells into the table model
+                        child_model['table']['rows'].append({"cells":this_rows_cells})
+                    # Add the child table to the parent table
+                    parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_netacl_out_entries}}", table)
@@ -596,47 +611,50 @@ def add_security_groups_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            this_parent_tbl_rows_cells = []
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            # Create the parent table row and cells
-            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
-            # inject the row of cells into the table model
-            parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-            # Build the child table
-            child_model = deepcopy(word_table_models.sec_grps_tbl)
-            for rownum, sg in enumerate(vpc['security_groups'], start=1):
-                this_rows_cells = []
-                # Shade every other row for readability
-                if not (rownum % 2) == 0:
-                    row_color = alternating_row_color
-                else:
-                    row_color = None
-                try: # Get SG name
-                    sg_name = [tag['Value'] for tag in sg['Tags'] if tag['Key'] == "Name"][0]
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                this_parent_tbl_rows_cells = []
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    sg_name = ""
-                except IndexError:
-                    # Object has no name
-                    sg_name = ""
-                # Get Rule Counts
-                ingress_rule_count = len(sg['IpPermissions'])
-                egress_rule_count = len(sg['IpPermissionsEgress'])
-                # Build word table rows & cells
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":sg_name}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":sg['GroupName']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":sg['GroupId']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":sg['Description']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":f"{str(ingress_rule_count)}/{str(egress_rule_count)}"}]})
+                    vpc_name = ""
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
                 # inject the row of cells into the table model
-                child_model['table']['rows'].append({"cells":this_rows_cells})
-            # Add the child table to the parent table
-            parent_model['table']['rows'].append({"cells":[child_model]})
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                # Build the child table
+                child_model = deepcopy(word_table_models.sec_grps_tbl)
+                for rownum, sg in enumerate(vpc['security_groups'], start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    try: # Get SG name
+                        sg_name = [tag['Value'] for tag in sg['Tags'] if tag['Key'] == "Name"][0]
+                    except KeyError:
+                        # Object has no name
+                        sg_name = ""
+                    except IndexError:
+                        # Object has no name
+                        sg_name = ""
+                    # Get Rule Counts
+                    ingress_rule_count = len(sg['IpPermissions'])
+                    egress_rule_count = len(sg['IpPermissionsEgress'])
+                    # Build word table rows & cells
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":sg_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":sg['GroupName']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":sg['GroupId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":sg['Description']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":f"{str(ingress_rule_count)}/{str(egress_rule_count)}"}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_sgs}}", table)
@@ -646,99 +664,102 @@ def add_sg_inbound_entries_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            for sg in vpc['security_groups']:
-                this_parent_tbl_rows_cells = []
-                try: # Get SG name
-                    sg_name = [tag['Value'] for tag in sg['Tags'] if tag['Key'] == "Name"][0]
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    sg_name = "<unnamed>"
-                except IndexError:
-                    # Object has no name
-                    sg_name = "<unnamed>"
-                # Create the parent table row and cells
-                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} / SG: {sg_name} ({sg['GroupId']})"}]})
-                # inject the row of cells into the table model
-                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-                # Build the child table
-                inbound_entries = [entry for entry in sg['IpPermissions']]
-                # An entry can have multiple sources so we need to extract them all
-                extracted_entries = []
-                for entry in inbound_entries:
-                    # Get Port Range
-                    try:
-                        if str(entry['FromPort']) == "-1":
-                            port_range = "All"
-                        if entry['FromPort'] == entry['ToPort']:
-                            port_range = str(entry['FromPort'])
-                        else:
-                            port_range = f"{entry['FromPort']}-{entry['ToPort']}"
+                    vpc_name = ""
+                for sg in vpc['security_groups']:
+                    this_parent_tbl_rows_cells = []
+                    try: # Get SG name
+                        sg_name = [tag['Value'] for tag in sg['Tags'] if tag['Key'] == "Name"][0]
                     except KeyError:
-                        port_range = "All"
-                    # Transpose IP Protocol
-                    protocol = "All" if str(entry['IpProtocol']) == "-1" else entry['IpProtocol']
-                    # Build source and description
-                    ip_sources = []
-                    for source in entry['IpRanges']:
-                        this_entry = {
-                            "protocol": protocol,
-                            "port_range": port_range,
-                            "source": source['CidrIp'],
-                            "description": "" if not "Description" in source.keys() else source['Description']
-                        }
-                        ip_sources.append(this_entry)
-                    ipv6_sources = []
-                    for source in entry['Ipv6Ranges']:
-                        this_entry = {
-                            "protocol": protocol,
-                            "port_range": port_range,
-                            "source": source['CidrIpv6'],
-                            "description": "" if not "Description" in source.keys() else source['Description']
-                        }
-                        ipv6_sources.append(this_entry)
-                    prefix_sources = []
-                    for source in entry['PrefixListIds']:
-                        this_entry = {
-                            "protocol": protocol,
-                            "port_range": port_range,
-                            "source": source['PrefixListId'],
-                            "description": "" if not "Description" in source.keys() else source['Description']
-                        }
-                        prefix_sources.append(this_entry)
-                    sg_sources = []
-                    for source in entry['UserIdGroupPairs']:
-                        this_entry = {
-                            "protocol": protocol,
-                            "port_range": port_range,
-                            "source": source['GroupId'],
-                            "description": "" if not "Description" in source.keys() else source['Description']
-                        }
-                        sg_sources.append(this_entry)
-                    sources = ip_sources + ipv6_sources + prefix_sources + sg_sources
-                    for each in sources:
-                        extracted_entries.append(each)
-                child_model = deepcopy(word_table_models.sec_grp_in_entries_tbl)
-                for rownum, entry in enumerate(extracted_entries, start=1):
-                    this_rows_cells = []
-                    # Shade every other row for readability
-                    if not (rownum % 2) == 0:
-                        row_color = alternating_row_color
-                    else:
-                        row_color = None
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['protocol']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['port_range']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['source']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['description']}]})
+                        # Object has no name
+                        sg_name = "<unnamed>"
+                    except IndexError:
+                        # Object has no name
+                        sg_name = "<unnamed>"
+                    # Create the parent table row and cells
+                    this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} / SG: {sg_name} ({sg['GroupId']})"}]})
                     # inject the row of cells into the table model
-                    child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Add the child table to the parent table
-                parent_model['table']['rows'].append({"cells":[child_model]})
+                    parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                    # Build the child table
+                    inbound_entries = [entry for entry in sg['IpPermissions']]
+                    # An entry can have multiple sources so we need to extract them all
+                    extracted_entries = []
+                    for entry in inbound_entries:
+                        # Get Port Range
+                        try:
+                            if str(entry['FromPort']) == "-1":
+                                port_range = "All"
+                            if entry['FromPort'] == entry['ToPort']:
+                                port_range = str(entry['FromPort'])
+                            else:
+                                port_range = f"{entry['FromPort']}-{entry['ToPort']}"
+                        except KeyError:
+                            port_range = "All"
+                        # Transpose IP Protocol
+                        protocol = "All" if str(entry['IpProtocol']) == "-1" else entry['IpProtocol']
+                        # Build source and description
+                        ip_sources = []
+                        for source in entry['IpRanges']:
+                            this_entry = {
+                                "protocol": protocol,
+                                "port_range": port_range,
+                                "source": source['CidrIp'],
+                                "description": "" if not "Description" in source.keys() else source['Description']
+                            }
+                            ip_sources.append(this_entry)
+                        ipv6_sources = []
+                        for source in entry['Ipv6Ranges']:
+                            this_entry = {
+                                "protocol": protocol,
+                                "port_range": port_range,
+                                "source": source['CidrIpv6'],
+                                "description": "" if not "Description" in source.keys() else source['Description']
+                            }
+                            ipv6_sources.append(this_entry)
+                        prefix_sources = []
+                        for source in entry['PrefixListIds']:
+                            this_entry = {
+                                "protocol": protocol,
+                                "port_range": port_range,
+                                "source": source['PrefixListId'],
+                                "description": "" if not "Description" in source.keys() else source['Description']
+                            }
+                            prefix_sources.append(this_entry)
+                        sg_sources = []
+                        for source in entry['UserIdGroupPairs']:
+                            this_entry = {
+                                "protocol": protocol,
+                                "port_range": port_range,
+                                "source": source['GroupId'],
+                                "description": "" if not "Description" in source.keys() else source['Description']
+                            }
+                            sg_sources.append(this_entry)
+                        sources = ip_sources + ipv6_sources + prefix_sources + sg_sources
+                        for each in sources:
+                            extracted_entries.append(each)
+                    child_model = deepcopy(word_table_models.sec_grp_in_entries_tbl)
+                    for rownum, entry in enumerate(extracted_entries, start=1):
+                        this_rows_cells = []
+                        # Shade every other row for readability
+                        if not (rownum % 2) == 0:
+                            row_color = alternating_row_color
+                        else:
+                            row_color = None
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['protocol']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['port_range']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['source']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['description']}]})
+                        # inject the row of cells into the table model
+                        child_model['table']['rows'].append({"cells":this_rows_cells})
+                    # Add the child table to the parent table
+                    parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_sg_in_entries}}", table)
@@ -748,99 +769,102 @@ def add_sg_outbound_entries_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            for sg in vpc['security_groups']:
-                this_parent_tbl_rows_cells = []
-                try: # Get SG name
-                    sg_name = [tag['Value'] for tag in sg['Tags'] if tag['Key'] == "Name"][0]
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
-                    sg_name = "<unnamed>"
-                except IndexError:
-                    # Object has no name
-                    sg_name = "<unnamed>"
-                # Create the parent table row and cells
-                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} / SG: {sg_name} ({sg['GroupId']})"}]})
-                # inject the row of cells into the table model
-                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-                # Build the child table
-                inbound_entries = [entry for entry in sg['IpPermissionsEgress']]
-                # An entry can have multiple sources so we need to extract them all
-                extracted_entries = []
-                for entry in inbound_entries:
-                    # Get Port Range
-                    try:
-                        if str(entry['FromPort']) == "-1":
-                            port_range = "All"
-                        if entry['FromPort'] == entry['ToPort']:
-                            port_range = str(entry['FromPort'])
-                        else:
-                            port_range = f"{entry['FromPort']}-{entry['ToPort']}"
+                    vpc_name = ""
+                for sg in vpc['security_groups']:
+                    this_parent_tbl_rows_cells = []
+                    try: # Get SG name
+                        sg_name = [tag['Value'] for tag in sg['Tags'] if tag['Key'] == "Name"][0]
                     except KeyError:
-                        port_range = "All"
-                    # Transpose IP Protocol
-                    protocol = "All" if str(entry['IpProtocol']) == "-1" else entry['IpProtocol']
-                    # Build source and description
-                    ip_sources = []
-                    for source in entry['IpRanges']:
-                        this_entry = {
-                            "protocol": protocol,
-                            "port_range": port_range,
-                            "source": source['CidrIp'],
-                            "description": "" if not "Description" in source.keys() else source['Description']
-                        }
-                        ip_sources.append(this_entry)
-                    ipv6_sources = []
-                    for source in entry['Ipv6Ranges']:
-                        this_entry = {
-                            "protocol": protocol,
-                            "port_range": port_range,
-                            "source": source['CidrIpv6'],
-                            "description": "" if not "Description" in source.keys() else source['Description']
-                        }
-                        ipv6_sources.append(this_entry)
-                    prefix_sources = []
-                    for source in entry['PrefixListIds']:
-                        this_entry = {
-                            "protocol": protocol,
-                            "port_range": port_range,
-                            "source": source['PrefixListId'],
-                            "description": "" if not "Description" in source.keys() else source['Description']
-                        }
-                        prefix_sources.append(this_entry)
-                    sg_sources = []
-                    for source in entry['UserIdGroupPairs']:
-                        this_entry = {
-                            "protocol": protocol,
-                            "port_range": port_range,
-                            "source": source['GroupId'],
-                            "description": "" if not "Description" in source.keys() else source['Description']
-                        }
-                        sg_sources.append(this_entry)
-                    sources = ip_sources + ipv6_sources + prefix_sources + sg_sources
-                    for each in sources:
-                        extracted_entries.append(each)
-                child_model = deepcopy(word_table_models.sec_grp_in_entries_tbl)
-                for rownum, entry in enumerate(extracted_entries, start=1):
-                    this_rows_cells = []
-                    # Shade every other row for readability
-                    if not (rownum % 2) == 0:
-                        row_color = alternating_row_color
-                    else:
-                        row_color = None
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['protocol']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['port_range']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['source']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['description']}]})
+                        # Object has no name
+                        sg_name = "<unnamed>"
+                    except IndexError:
+                        # Object has no name
+                        sg_name = "<unnamed>"
+                    # Create the parent table row and cells
+                    this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} / SG: {sg_name} ({sg['GroupId']})"}]})
                     # inject the row of cells into the table model
-                    child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Add the child table to the parent table
-                parent_model['table']['rows'].append({"cells":[child_model]})
+                    parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                    # Build the child table
+                    inbound_entries = [entry for entry in sg['IpPermissionsEgress']]
+                    # An entry can have multiple sources so we need to extract them all
+                    extracted_entries = []
+                    for entry in inbound_entries:
+                        # Get Port Range
+                        try:
+                            if str(entry['FromPort']) == "-1":
+                                port_range = "All"
+                            if entry['FromPort'] == entry['ToPort']:
+                                port_range = str(entry['FromPort'])
+                            else:
+                                port_range = f"{entry['FromPort']}-{entry['ToPort']}"
+                        except KeyError:
+                            port_range = "All"
+                        # Transpose IP Protocol
+                        protocol = "All" if str(entry['IpProtocol']) == "-1" else entry['IpProtocol']
+                        # Build source and description
+                        ip_sources = []
+                        for source in entry['IpRanges']:
+                            this_entry = {
+                                "protocol": protocol,
+                                "port_range": port_range,
+                                "source": source['CidrIp'],
+                                "description": "" if not "Description" in source.keys() else source['Description']
+                            }
+                            ip_sources.append(this_entry)
+                        ipv6_sources = []
+                        for source in entry['Ipv6Ranges']:
+                            this_entry = {
+                                "protocol": protocol,
+                                "port_range": port_range,
+                                "source": source['CidrIpv6'],
+                                "description": "" if not "Description" in source.keys() else source['Description']
+                            }
+                            ipv6_sources.append(this_entry)
+                        prefix_sources = []
+                        for source in entry['PrefixListIds']:
+                            this_entry = {
+                                "protocol": protocol,
+                                "port_range": port_range,
+                                "source": source['PrefixListId'],
+                                "description": "" if not "Description" in source.keys() else source['Description']
+                            }
+                            prefix_sources.append(this_entry)
+                        sg_sources = []
+                        for source in entry['UserIdGroupPairs']:
+                            this_entry = {
+                                "protocol": protocol,
+                                "port_range": port_range,
+                                "source": source['GroupId'],
+                                "description": "" if not "Description" in source.keys() else source['Description']
+                            }
+                            sg_sources.append(this_entry)
+                        sources = ip_sources + ipv6_sources + prefix_sources + sg_sources
+                        for each in sources:
+                            extracted_entries.append(each)
+                    child_model = deepcopy(word_table_models.sec_grp_in_entries_tbl)
+                    for rownum, entry in enumerate(extracted_entries, start=1):
+                        this_rows_cells = []
+                        # Shade every other row for readability
+                        if not (rownum % 2) == 0:
+                            row_color = alternating_row_color
+                        else:
+                            row_color = None
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['protocol']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['port_range']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['source']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['description']}]})
+                        # inject the row of cells into the table model
+                        child_model['table']['rows'].append({"cells":this_rows_cells})
+                    # Add the child table to the parent table
+                    parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_sg_out_entries}}", table)
@@ -1134,128 +1158,131 @@ def add_vpn_gateways_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            this_parent_tbl_rows_cells = []
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            # Create the parent table row and cells
-            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
-            # inject the row of cells into the table model
-            parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-            if not vpc['vpn_gateways']:
-                parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style": "No Spacing", "text": "No VPN Gateways configured"}]}]})
-            else:
-                # Build the child table
-                child_model = deepcopy(word_table_models.vgw_tbl)
-                for rownum, gw in enumerate(vpc['vpn_gateways'], start=1):
-                    if rownum > 1: # Inject an empty row to space the data
-                        child_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": ""}]},{"merge":None},{"merge":None},{"merge":None}]})
-                    try: # Get VGW name
-                        gw_name = [tag['Value'] for tag in gw['Tags'] if tag['Key'] == "Name"][0]
-                    except KeyError:
-                        # Object has no name
-                        gw_name = ""
-                    except IndexError:
-                        # Object has no name
-                        gw_name = ""
-                    # Build word table rows & cells
-                    child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":gw_name})
-                    child_model['table']['rows'][0]['cells'][4]['paragraphs'].append({"style":"No Spacing","text":gw['VpnGatewayId']})
-                    child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":str(gw['AmazonSideAsn'])})
-                    child_model['table']['rows'][1]['cells'][4]['paragraphs'].append({"style":"No Spacing","text":gw['Type']})
-                    child_model['table']['rows'][2]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":[vpc['VpcId'] for vpc in gw['VpcAttachments']]})
-                    # Insert the Customer Gateway Header into the Child Table
-                    child_model['table']['rows'].append(word_table_models.vgw_cgw_tbl_header)
-                    # Add associated Customer Gateways
-                    if not gw['customer_gateways']:
-                        child_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Customer Gateways"}]},{"merge":None},{"merge":None},{"merge":None}]})
-                    else:
-                        for rownum2, cgw in enumerate(gw['customer_gateways'], start=1):
-                            this_rows_cells = []
-                            # Shade every other row for readability
-                            if not (rownum2 % 2) == 0:
-                                row_color = alternating_row_color
-                            else:
-                                row_color = None
-                            try: # Get CGW name
-                                cgw_name = [tag['Value'] for tag in cgw['Tags'] if tag['Key'] == "Name"][0]
-                            except KeyError:
-                                # Object has no name
-                                cgw_name = ""
-                            except IndexError:
-                                # Object has no name
-                                cgw_name = ""
-                            try: # Get CGW Device name
-                                cgw_dev_name = cgw['DeviceName']
-                            except KeyError:
-                                # Object has no name
-                                cgw_dev_name = ""
-                            except IndexError:
-                                # Object has no name
-                                cgw_dev_name = ""
-                            # Build word table rows & cells
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw_name}]})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw['CustomerGatewayId']}]})
-                            this_rows_cells.append({"merge":None})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw_dev_name}]})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw['IpAddress']}]})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(cgw['BgpAsn'])}]})
-                            # inject the row of cells into the table model
-                            child_model['table']['rows'].append({"cells":this_rows_cells})
-                    # Create new section in child table for connections
-                    if not gw['connections']:
-                        child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs":[{"style":"regularbold","text":"VPN CONNECTION"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
-                        child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs":[{"style":"No Spacing","text":"no vpn connections present"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
-                    else:
-                        for conn in gw['connections']:
-                            child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs":[{"style":"regularbold","text":f"{conn['CustomerGatewayId']} VPN CONNECTIONS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
-                            child_model['table']['rows'].append(word_table_models.vgw_conn_tbl_header)
-                            this_rows_cells = []
-                            try: # Get Connection name
-                                conn_name = [tag['Value'] for tag in conn['Tags'] if tag['Key'] == "Name"][0]
-                            except KeyError:
-                                # Object has no name
-                                conn_name = ""
-                            except IndexError:
-                                # Object has no name
-                                conn_name = ""
-                            # Add connection rows to table
-                            this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn_name}]})
-                            this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn['CustomerGatewayId']}]})
-                            this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['LocalIpv4NetworkCidr']}]})
-                            this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['RemoteIpv4NetworkCidr']}]})
-                            this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['OutsideIpAddressType']}]})
-                            this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['TunnelInsideIpVersion']}]})
-                            # inject cells into the child table row
-                            child_model['table']['rows'].append({"cells":this_rows_cells})
-                            # Create new section in child table for connection tunnels
-                            conn_label = conn_name if not conn_name == "" else conn['VpnConnectionId']
-                            child_model['table']['rows'].append({"cells":[{"background":new_section_color2,"paragraphs":[{"style":"regularbold","text":f"{conn_label} VPN CONNECTION TUNNELS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
-                            child_model['table']['rows'].append(word_table_models.vgw_conn_tunnel_tbl_header)
-                            for rownum2, tun in enumerate(conn['Options']['TunnelOptions'], start=1):
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                this_parent_tbl_rows_cells = []
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
+                except KeyError:
+                    # Object has no name
+                    vpc_name = ""
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
+                # inject the row of cells into the table model
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                if not vpc['vpn_gateways']:
+                    parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style": "No Spacing", "text": "No VPN Gateways configured"}]}]})
+                else:
+                    # Build the child table
+                    child_model = deepcopy(word_table_models.vgw_tbl)
+                    for rownum, gw in enumerate(vpc['vpn_gateways'], start=1):
+                        if rownum > 1: # Inject an empty row to space the data
+                            child_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": ""}]},{"merge":None},{"merge":None},{"merge":None}]})
+                        try: # Get VGW name
+                            gw_name = [tag['Value'] for tag in gw['Tags'] if tag['Key'] == "Name"][0]
+                        except KeyError:
+                            # Object has no name
+                            gw_name = ""
+                        except IndexError:
+                            # Object has no name
+                            gw_name = ""
+                        # Build word table rows & cells
+                        child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":gw_name})
+                        child_model['table']['rows'][0]['cells'][4]['paragraphs'].append({"style":"No Spacing","text":gw['VpnGatewayId']})
+                        child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":str(gw['AmazonSideAsn'])})
+                        child_model['table']['rows'][1]['cells'][4]['paragraphs'].append({"style":"No Spacing","text":gw['Type']})
+                        child_model['table']['rows'][2]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":[vpc['VpcId'] for vpc in gw['VpcAttachments']]})
+                        # Insert the Customer Gateway Header into the Child Table
+                        child_model['table']['rows'].append(word_table_models.vgw_cgw_tbl_header)
+                        # Add associated Customer Gateways
+                        if not gw['customer_gateways']:
+                            child_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Customer Gateways"}]},{"merge":None},{"merge":None},{"merge":None}]})
+                        else:
+                            for rownum2, cgw in enumerate(gw['customer_gateways'], start=1):
                                 this_rows_cells = []
                                 # Shade every other row for readability
                                 if not (rownum2 % 2) == 0:
                                     row_color = alternating_row_color
                                 else:
                                     row_color = None
-                                # Get this tunnels IPSec status and tunnel status
-                                ipsec_status = [status['StatusMessage'] for status in conn['VgwTelemetry'] if status['OutsideIpAddress'] == tun['OutsideIpAddress']][0]
-                                tun_status = [status['Status'] for status in conn['VgwTelemetry'] if status['OutsideIpAddress'] == tun['OutsideIpAddress']][0]
+                                try: # Get CGW name
+                                    cgw_name = [tag['Value'] for tag in cgw['Tags'] if tag['Key'] == "Name"][0]
+                                except KeyError:
+                                    # Object has no name
+                                    cgw_name = ""
+                                except IndexError:
+                                    # Object has no name
+                                    cgw_name = ""
+                                try: # Get CGW Device name
+                                    cgw_dev_name = cgw['DeviceName']
+                                except KeyError:
+                                    # Object has no name
+                                    cgw_dev_name = ""
+                                except IndexError:
+                                    # Object has no name
+                                    cgw_dev_name = ""
+                                # Build word table rows & cells
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw_name}]})
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw['CustomerGatewayId']}]})
+                                this_rows_cells.append({"merge":None})
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw_dev_name}]})
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw['IpAddress']}]})
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(cgw['BgpAsn'])}]})
+                                # inject the row of cells into the table model
+                                child_model['table']['rows'].append({"cells":this_rows_cells})
+                        # Create new section in child table for connections
+                        if not gw['connections']:
+                            child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs":[{"style":"regularbold","text":"VPN CONNECTION"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                            child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs":[{"style":"No Spacing","text":"no vpn connections present"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                        else:
+                            for conn in gw['connections']:
+                                child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs":[{"style":"regularbold","text":f"{conn['CustomerGatewayId']} VPN CONNECTIONS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                                child_model['table']['rows'].append(word_table_models.vgw_conn_tbl_header)
+                                this_rows_cells = []
+                                try: # Get Connection name
+                                    conn_name = [tag['Value'] for tag in conn['Tags'] if tag['Key'] == "Name"][0]
+                                except KeyError:
+                                    # Object has no name
+                                    conn_name = ""
+                                except IndexError:
+                                    # Object has no name
+                                    conn_name = ""
                                 # Add connection rows to table
-                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tun['OutsideIpAddress']}]})
-                                this_rows_cells.append({"merge":None})
-                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tun['TunnelInsideCidr']}]})
-                                this_rows_cells.append({"merge":None})
-                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ipsec_status}]})
-                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tun_status}]})
+                                this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn_name}]})
+                                this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn['CustomerGatewayId']}]})
+                                this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['LocalIpv4NetworkCidr']}]})
+                                this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['RemoteIpv4NetworkCidr']}]})
+                                this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['OutsideIpAddressType']}]})
+                                this_rows_cells.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['TunnelInsideIpVersion']}]})
                                 # inject cells into the child table row
                                 child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Add the child table to the parent table
-                parent_model['table']['rows'].append({"cells":[child_model]})
+                                # Create new section in child table for connection tunnels
+                                conn_label = conn_name if not conn_name == "" else conn['VpnConnectionId']
+                                child_model['table']['rows'].append({"cells":[{"background":new_section_color2,"paragraphs":[{"style":"regularbold","text":f"{conn_label} VPN CONNECTION TUNNELS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                                child_model['table']['rows'].append(word_table_models.vgw_conn_tunnel_tbl_header)
+                                for rownum2, tun in enumerate(conn['Options']['TunnelOptions'], start=1):
+                                    this_rows_cells = []
+                                    # Shade every other row for readability
+                                    if not (rownum2 % 2) == 0:
+                                        row_color = alternating_row_color
+                                    else:
+                                        row_color = None
+                                    # Get this tunnels IPSec status and tunnel status
+                                    ipsec_status = [status['StatusMessage'] for status in conn['VgwTelemetry'] if status['OutsideIpAddress'] == tun['OutsideIpAddress']][0]
+                                    tun_status = [status['Status'] for status in conn['VgwTelemetry'] if status['OutsideIpAddress'] == tun['OutsideIpAddress']][0]
+                                    # Add connection rows to table
+                                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tun['OutsideIpAddress']}]})
+                                    this_rows_cells.append({"merge":None})
+                                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tun['TunnelInsideCidr']}]})
+                                    this_rows_cells.append({"merge":None})
+                                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ipsec_status}]})
+                                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tun_status}]})
+                                    # inject cells into the child table row
+                                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                    # Add the child table to the parent table
+                    parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_vgws}}", table)
@@ -1265,78 +1292,81 @@ def add_instances_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            this_parent_tbl_rows_cells = []
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            # Create the parent table row and cells
-            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} ({len(vpc['ec2_instances'])} Instances)"}]})
-            # inject the row of cells into the table model
-            parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-            # Build the child table
-            if not vpc['ec2_instances']:
-                parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":"No EC2 Instances"}]}]})
-            else:
-                for rownum, inst in enumerate(vpc['ec2_instances'], start=1):
-                    if rownum > 1: # inject space between instance tables
-                        parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":""}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
-                    child_model = deepcopy(word_table_models.ec2_inst_tbl)
-                    try: # Get Instance name
-                        inst_name = [tag['Value'] for tag in inst['Tags'] if tag['Key'] == "Name"][0]
-                    except KeyError:
-                        # Object has no name
-                        inst_name = ""
-                    except IndexError:
-                        # Object has no name
-                        inst_name = ""
-                    try: # Get Public IP Address
-                        public_ip = inst['PublicIpAddress']
-                    except KeyError:
-                        public_ip = ""
-                    # Build word table rows & cells
-                    child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst_name})
-                    child_model['table']['rows'][0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['ImageId']})
-                    child_model['table']['rows'][0]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['InstanceType']})
-                    child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst['Placement']['AvailabilityZone']})
-                    child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['PrivateIpAddress']})
-                    child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":public_ip})
-                    child_model['table']['rows'][2]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst['PlatformDetails']})
-                    child_model['table']['rows'][2]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['Architecture']})
-                    child_model['table']['rows'][2]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['State']['Name']})
-                    # Add network interfaces to table
-                    inst_label = inst_name if not inst_name == "" else inst['InstanceId']
-                    child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs": [{"style": "regularbold", "text": f"{inst_label} NETWORK INTERFACES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
-                    if not inst['NetworkInterfaces']:
-                        child_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Network Interfaces"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
-                    else:
-                        child_model['table']['rows'].append(word_table_models.ec2_inst_interface_tbl_header)
-                        for rownum2, intf in enumerate(sorted(inst['NetworkInterfaces'], key=lambda d : d['Attachment']['DeviceIndex']), start=1):
-                            this_rows_cells = []
-                            # Shade every other row for readability
-                            if not (rownum2 % 2) == 0:
-                                row_color = alternating_row_color
-                            else:
-                                row_color = None
-                            try: # Get Public IP if applicable
-                                public_ip = intf['Association']['PublicIp']
-                            except KeyError:
-                                public_ip = ""
-                            # Get Security Groups
-                            sec_grps = [sg['GroupId'] for sg in intf['Groups'] if sg['GroupId'].startswith("sg-")]
-                            # Add interface cells to table row
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":intf['Attachment']['AttachmentId']}]})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":intf['PrivateIpAddress']}]})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":public_ip}]})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":intf['SubnetId']}]})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":sec_grps}]})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(intf['Attachment']['DeviceIndex'])}]})
-                            # inject cells into the child table row
-                            child_model['table']['rows'].append({"cells":this_rows_cells})
-                    # Add the child table to the parent table
-                    parent_model['table']['rows'].append({"cells":[child_model]})
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                this_parent_tbl_rows_cells = []
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
+                except KeyError:
+                    # Object has no name
+                    vpc_name = ""
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} ({len(vpc['ec2_instances'])} Instances)"}]})
+                # inject the row of cells into the table model
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                # Build the child table
+                if not vpc['ec2_instances']:
+                    parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":"No EC2 Instances"}]}]})
+                else:
+                    for rownum, inst in enumerate(vpc['ec2_instances'], start=1):
+                        if rownum > 1: # inject space between instance tables
+                            parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":""}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                        child_model = deepcopy(word_table_models.ec2_inst_tbl)
+                        try: # Get Instance name
+                            inst_name = [tag['Value'] for tag in inst['Tags'] if tag['Key'] == "Name"][0]
+                        except KeyError:
+                            # Object has no name
+                            inst_name = ""
+                        except IndexError:
+                            # Object has no name
+                            inst_name = ""
+                        try: # Get Public IP Address
+                            public_ip = inst['PublicIpAddress']
+                        except KeyError:
+                            public_ip = ""
+                        # Build word table rows & cells
+                        child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst_name})
+                        child_model['table']['rows'][0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['ImageId']})
+                        child_model['table']['rows'][0]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['InstanceType']})
+                        child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst['Placement']['AvailabilityZone']})
+                        child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['PrivateIpAddress']})
+                        child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":public_ip})
+                        child_model['table']['rows'][2]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst['PlatformDetails']})
+                        child_model['table']['rows'][2]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['Architecture']})
+                        child_model['table']['rows'][2]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['State']['Name']})
+                        # Add network interfaces to table
+                        inst_label = inst_name if not inst_name == "" else inst['InstanceId']
+                        child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs": [{"style": "regularbold", "text": f"{inst_label} NETWORK INTERFACES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                        if not inst['NetworkInterfaces']:
+                            child_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Network Interfaces"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                        else:
+                            child_model['table']['rows'].append(word_table_models.ec2_inst_interface_tbl_header)
+                            for rownum2, intf in enumerate(sorted(inst['NetworkInterfaces'], key=lambda d : d['Attachment']['DeviceIndex']), start=1):
+                                this_rows_cells = []
+                                # Shade every other row for readability
+                                if not (rownum2 % 2) == 0:
+                                    row_color = alternating_row_color
+                                else:
+                                    row_color = None
+                                try: # Get Public IP if applicable
+                                    public_ip = intf['Association']['PublicIp']
+                                except KeyError:
+                                    public_ip = ""
+                                # Get Security Groups
+                                sec_grps = [sg['GroupId'] for sg in intf['Groups'] if sg['GroupId'].startswith("sg-")]
+                                # Add interface cells to table row
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":intf['Attachment']['AttachmentId']}]})
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":intf['PrivateIpAddress']}]})
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":public_ip}]})
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":intf['SubnetId']}]})
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":sec_grps}]})
+                                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(intf['Attachment']['DeviceIndex'])}]})
+                                # inject cells into the child table row
+                                child_model['table']['rows'].append({"cells":this_rows_cells})
+                        # Add the child table to the parent table
+                        parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_ec2_inst}}", table)
