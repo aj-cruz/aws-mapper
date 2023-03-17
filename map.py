@@ -289,7 +289,7 @@ def add_route_tables_to_word_doc():
                 except KeyError:
                     # Object has no name
                     vpc_name = ""
-                except IndexError
+                except IndexError:
                     vpc_name = ""
                 # Create the parent table row and cells
                 this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
