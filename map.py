@@ -432,6 +432,8 @@ def add_subnets_to_word_doc():
                     except KeyError as e:
                         # Object has no name
                         subnet_name = ""
+                    except IndexError:
+                        subnet_name = ""
                     # Get Route Table
                     try:
                         route_table = [rt['RouteTableId'] for rt in vpc['route_tables'] for assoc in rt['Associations'] if "SubnetId" in assoc.keys() and assoc['SubnetId'] == subnet['SubnetId']][0]
