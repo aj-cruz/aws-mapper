@@ -874,7 +874,9 @@ def add_internet_gateways_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        if vpcs:
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
             this_parent_tbl_rows_cells = []
             # Create the parent table row and cells
             this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
@@ -920,7 +922,9 @@ def add_egress_only_internet_gateways_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        if vpcs:
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
             this_parent_tbl_rows_cells = []
             # Create the parent table row and cells
             this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
@@ -966,7 +970,9 @@ def add_nat_gateways_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        if vpcs:
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
             this_parent_tbl_rows_cells = []
             # Create the parent table row and cells
             this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
