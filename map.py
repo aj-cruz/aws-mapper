@@ -381,50 +381,51 @@ def add_subnets_to_word_doc():
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
-        for vpc in vpcs:
-            this_parent_tbl_rows_cells = []
-            try:
-                vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
-            except KeyError:
-                # Object has no name
-                vpc_name = ""
-            # Create the parent table row and cells
-            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
-            # inject the row of cells into the table model
-            parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-            # Build the child table
-            child_model = deepcopy(word_table_models.subnet_tbl)
-            for rownum, subnet in enumerate(sorted(vpc['subnets'], key = lambda d : d['AvailabilityZone']), start=1):
-                this_rows_cells = []
-                # Shade every other row for readability
-                if not (rownum % 2) == 0:
-                    row_color = alternating_row_color
-                else:
-                    row_color = None
-                try: # Get the Subnet Name
-                    subnet_name = [tag['Value'] for tag in subnet['Tags'] if tag['Key'] == "Name"][0]
-                except KeyError as e:
-                    # Object has no name
-                    subnet_name = ""
-                # Get Route Table
+        if not vpcs:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+        else:
+            for vpc in vpcs:
+                this_parent_tbl_rows_cells = []
                 try:
-                    route_table = [rt['RouteTableId'] for rt in vpc['route_tables'] for assoc in rt['Associations'] if "SubnetId" in assoc.keys() and assoc['SubnetId'] == subnet['SubnetId']][0]
-                except IndexError:
-                    route_table = ""
-                # Get Network ACLs
-                net_acls = [assoc['NetworkAclId'] for acl in vpc['network_acls'] for assoc in acl['Associations'] if assoc['SubnetId'] == subnet['SubnetId']]
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['CidrBlock']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet_name}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['AvailabilityZone']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route_table}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":net_acls}]})
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
+                except KeyError:
+                    # Object has no name
+                    vpc_name = ""
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
                 # inject the row of cells into the table model
-                child_model['table']['rows'].append({"cells":this_rows_cells})
-            # Add the child table to the parent table
-            parent_model['table']['rows'].append({"cells":[child_model]})
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                # Build the child table
+                child_model = deepcopy(word_table_models.subnet_tbl)
+                for rownum, subnet in enumerate(sorted(vpc['subnets'], key = lambda d : d['AvailabilityZone']), start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    try: # Get the Subnet Name
+                        subnet_name = [tag['Value'] for tag in subnet['Tags'] if tag['Key'] == "Name"][0]
+                    except KeyError as e:
+                        # Object has no name
+                        subnet_name = ""
+                    # Get Route Table
+                    try:
+                        route_table = [rt['RouteTableId'] for rt in vpc['route_tables'] for assoc in rt['Associations'] if "SubnetId" in assoc.keys() and assoc['SubnetId'] == subnet['SubnetId']][0]
+                    except IndexError:
+                        route_table = ""
+                    # Get Network ACLs
+                    net_acls = [assoc['NetworkAclId'] for acl in vpc['network_acls'] for assoc in acl['Associations'] if assoc['SubnetId'] == subnet['SubnetId']]
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['CidrBlock']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['AvailabilityZone']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route_table}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":net_acls}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    with open("table.json", "w") as f:
-        f.write(json.dumps(parent_model,indent=4))
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_subnets}}", table)
 
