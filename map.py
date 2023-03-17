@@ -1056,7 +1056,7 @@ def add_transit_gateways_to_word_doc():
     model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, attributes in topology.items():
-        if not region in non_region_topology_keys: # Ignore these dictionary keys, they are not a region
+        if not region in non_region_topology_keys and attributes['transit_gateways']: # Ignore these dictionary keys, they are not a region, also don't run if there are no transit gateways in the region
             # Create Table title (Region)
             model['table']['rows'].append({"cells": [{"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]}]})
             for rownum, tgw in enumerate(attributes['transit_gateways']):
