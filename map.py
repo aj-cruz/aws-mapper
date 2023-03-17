@@ -633,10 +633,14 @@ def add_netacl_outbound_entries_to_word_doc():
                                 port_range = f"{entry['PortRange']['From']}-{entry['PortRange']['To']}"
                         except KeyError:
                             port_range = "All"
+                        try: # Get CIDR Block
+                            cidr_block = entry['CidrBlock']
+                        except KeyError:
+                            cidr_block = ""
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(entry['RuleNumber'])}]})
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":aws_protocol_map[entry['Protocol']]}]})
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":port_range}]})
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['CidrBlock']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cidr_block}]})
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":entry['RuleAction']}]})
                         # inject the row of cells into the table model
                         child_model['table']['rows'].append({"cells":this_rows_cells})
