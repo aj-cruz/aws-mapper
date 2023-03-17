@@ -352,6 +352,8 @@ def add_routes_to_word_doc():
                 except KeyError:
                     # Object has no name
                     vpc_name = ""
+                except IndexError:
+                    vpc_name = ""
                 for rt in vpc['route_tables']:
                     this_parent_tbl_rows_cells = []
                     try: # Get Route Table name
@@ -472,6 +474,8 @@ def add_network_acls_to_word_doc():
                 except KeyError:
                     # Object has no name
                     vpc_name = ""
+                except IndexError:
+                    vpc_name = ""
                 # Create the parent table row and cells
                 this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
                 # inject the row of cells into the table model
@@ -526,6 +530,8 @@ def add_netacl_inbound_entries_to_word_doc():
                     vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
+                    vpc_name = ""
+                except IndexError:
                     vpc_name = ""
                 for acl in vpc['network_acls']:
                     this_parent_tbl_rows_cells = []
@@ -588,6 +594,8 @@ def add_netacl_outbound_entries_to_word_doc():
                     vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
+                    vpc_name = ""
+                except IndexError:
                     vpc_name = ""
                 for acl in vpc['network_acls']:
                     this_parent_tbl_rows_cells = []
@@ -652,6 +660,8 @@ def add_security_groups_to_word_doc():
                 except KeyError:
                     # Object has no name
                     vpc_name = ""
+                except IndexError:
+                    vpc_name = ""
                 # Create the parent table row and cells
                 this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
                 # inject the row of cells into the table model
@@ -706,6 +716,8 @@ def add_sg_inbound_entries_to_word_doc():
                     vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
+                    vpc_name = ""
+                except IndexError:
                     vpc_name = ""
                 for sg in vpc['security_groups']:
                     this_parent_tbl_rows_cells = []
@@ -814,6 +826,8 @@ def add_sg_outbound_entries_to_word_doc():
                     vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
+                    vpc_name = ""
+                except IndexError:
                     vpc_name = ""
                 for sg in vpc['security_groups']:
                     this_parent_tbl_rows_cells = []
@@ -930,6 +944,8 @@ def add_internet_gateways_to_word_doc():
                 except KeyError:
                     # Object has no name
                     vpc_name = ""
+                except IndexError:
+                    vpc_name = ""
                 for igw in vpc['internet_gateways']:
                     this_rows_cells = []
                     # Shade every other row for readability
@@ -981,6 +997,8 @@ def add_egress_only_internet_gateways_to_word_doc():
                 except KeyError:
                     # Object has no name
                     vpc_name = ""
+                except IndexError:
+                    vpc_name = ""
                 for rownum, igw in enumerate(vpc['egress_only_internet_gateways'], start=1):
                     this_rows_cells = []
                     # Shade every other row for readability
@@ -1031,6 +1049,8 @@ def add_nat_gateways_to_word_doc():
                     vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
+                    vpc_name = ""
+                except IndexError:
                     vpc_name = ""
                 for rownum, ngw in enumerate(vpc['nat_gateways'], start=1):
                     this_rows_cells = []
@@ -1223,6 +1243,8 @@ def add_vpn_gateways_to_word_doc():
                 except KeyError:
                     # Object has no name
                     vpc_name = ""
+                except IndexError:
+                    vpc_name = ""
                 # Create the parent table row and cells
                 this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
                 # inject the row of cells into the table model
@@ -1359,6 +1381,8 @@ def add_instances_to_word_doc():
                     vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
                     # Object has no name
+                    vpc_name = ""
+                except IndexError:
                     vpc_name = ""
                 # Create the parent table row and cells
                 this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name} ({len(vpc['ec2_instances'])} Instances)"}]})
