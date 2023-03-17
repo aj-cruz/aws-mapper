@@ -240,7 +240,7 @@ def add_transit_gateways_to_topology():
                 topology[region]['transit_gateways'] = tgws
             except botocore.exceptions.ClientError as e:
                 if "(UnauthorizedOperation)" in str(e):
-                    rprint(f"[red]Unauthorized Operation reported while pulling Transit Gatways from {region}. Skipping...")
+                    rprint(f"[red]Unauthorized Operation reported while pulling Transit Gateways from {region}. Skipping...")
                 else:
                     print(e)
 
