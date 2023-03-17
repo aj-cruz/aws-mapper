@@ -273,7 +273,7 @@ def add_route_tables_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 this_parent_tbl_rows_cells = []
@@ -323,8 +323,11 @@ def add_route_tables_to_word_doc():
                 # Add the child table to the parent table
                 parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_rts}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_rts}}", table)
 
 def add_routes_to_word_doc():
     # Create the parent table model
@@ -332,7 +335,7 @@ def add_routes_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 try:
@@ -379,8 +382,11 @@ def add_routes_to_word_doc():
                     # Add the child table to the parent table
                     parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_rt_routes}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_rt_routes}}", table)
 
 def add_subnets_to_word_doc():
     # Create the parent table model
@@ -388,7 +394,7 @@ def add_subnets_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 this_parent_tbl_rows_cells = []
@@ -432,8 +438,11 @@ def add_subnets_to_word_doc():
                 # Add the child table to the parent table
                 parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_subnets}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_subnets}}", table)
 
 def add_network_acls_to_word_doc():
     # Create the parent table model
@@ -441,7 +450,7 @@ def add_network_acls_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 this_parent_tbl_rows_cells = []
@@ -485,8 +494,11 @@ def add_network_acls_to_word_doc():
                 # Add the child table to the parent table
                 parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_netacls}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_netacls}}", table)
 
 def add_netacl_inbound_entries_to_word_doc():
     # Create the parent table model
@@ -494,7 +506,7 @@ def add_netacl_inbound_entries_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 try:
@@ -544,8 +556,11 @@ def add_netacl_inbound_entries_to_word_doc():
                     # Add the child table to the parent table
                     parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_netacl_in_entries}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_netacl_in_entries}}", table)
 
 def add_netacl_outbound_entries_to_word_doc():
     # Create the parent table model
@@ -553,7 +568,7 @@ def add_netacl_outbound_entries_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 try:
@@ -603,8 +618,11 @@ def add_netacl_outbound_entries_to_word_doc():
                     # Add the child table to the parent table
                     parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_netacl_out_entries}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_netacl_out_entries}}", table)
 
 def add_security_groups_to_word_doc():
     # Create the parent table model
@@ -612,7 +630,7 @@ def add_security_groups_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 this_parent_tbl_rows_cells = []
@@ -656,8 +674,11 @@ def add_security_groups_to_word_doc():
                 # Add the child table to the parent table
                 parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_sgs}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_sgs}}", table)
 
 def add_sg_inbound_entries_to_word_doc():
     # Create the parent table model
@@ -665,7 +686,7 @@ def add_sg_inbound_entries_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 try:
@@ -761,8 +782,11 @@ def add_sg_inbound_entries_to_word_doc():
                     # Add the child table to the parent table
                     parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_sg_in_entries}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_sg_in_entries}}", table)
 
 def add_sg_outbound_entries_to_word_doc():
     # Create the parent table model
@@ -770,7 +794,7 @@ def add_sg_outbound_entries_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 try:
@@ -866,8 +890,11 @@ def add_sg_outbound_entries_to_word_doc():
                     # Add the child table to the parent table
                     parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_sg_out_entries}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_sg_out_entries}}", table)
 
 def add_internet_gateways_to_word_doc():
     # Create the parent table model
@@ -875,7 +902,7 @@ def add_internet_gateways_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             this_parent_tbl_rows_cells = []
             # Create the parent table row and cells
@@ -914,8 +941,11 @@ def add_internet_gateways_to_word_doc():
             # Add the child table to the parent table
             parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_igws}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_igws}}", table)
 
 def add_egress_only_internet_gateways_to_word_doc():
     # Create the parent table model
@@ -923,7 +953,7 @@ def add_egress_only_internet_gateways_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             this_parent_tbl_rows_cells = []
             # Create the parent table row and cells
@@ -962,8 +992,11 @@ def add_egress_only_internet_gateways_to_word_doc():
             # Add the child table to the parent table
             parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_eigws}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_eigws}}", table)
 
 def add_nat_gateways_to_word_doc():
     # Create the parent table model
@@ -971,7 +1004,7 @@ def add_nat_gateways_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             this_parent_tbl_rows_cells = []
             # Create the parent table row and cells
@@ -1036,8 +1069,11 @@ def add_nat_gateways_to_word_doc():
             # Add the child table to the parent table
             parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_ngws}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_ngws}}", table)
 
 def add_vpc_peerings_to_word_doc():
     # Create the base table model
@@ -1165,7 +1201,7 @@ def add_vpn_gateways_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 this_parent_tbl_rows_cells = []
@@ -1290,8 +1326,11 @@ def add_vpn_gateways_to_word_doc():
                     # Add the child table to the parent table
                     parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_vgws}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_vgws}}", table)
 
 def add_instances_to_word_doc():
     # Create the parent table model
@@ -1299,7 +1338,7 @@ def add_instances_to_word_doc():
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+            pass
         else:
             for vpc in vpcs:
                 this_parent_tbl_rows_cells = []
@@ -1374,8 +1413,11 @@ def add_instances_to_word_doc():
                         # Add the child table to the parent table
                         parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_ec2_inst}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_ec2_inst}}", table)
 
 if __name__ == "__main__":
     try:
