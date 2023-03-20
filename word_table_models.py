@@ -28,6 +28,10 @@ vpc_tbl = {
                     {
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "VPC ID"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "INSTANCE QTY"}]
                     }
                 ]
             }
@@ -120,6 +124,14 @@ subnet_tbl = {
                     {
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "NET ACL"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ID"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "INST QTY"}]
                     }
                 ]
             }

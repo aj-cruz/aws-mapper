@@ -36,7 +36,7 @@ aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "1": "ICMPv4",
     "58": "ICMPv6"
 }
-non_region_topology_keys = ["account_id", "vpc_peering_connections", "direct_connect"]
+non_region_topology_keys = ["account", "vpc_peering_connections", "direct_connect"]
 
 # HELPER FUNCTIONS
 def datetime_converter(obj):
@@ -257,17 +257,19 @@ def add_vpcs_to_word_doc():
             row_color = alternating_row_color
         else:
             row_color = None
-        try:
-            vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
+        try: # Get VPC Name (from tag)
+            vpc_name = [tag['Value'] for tag in vpc['vpc']['Tags'] if tag['Key'] == "Name"][0]
         except KeyError:
-            # Object has no name
             vpc_name = ""
         except IndexError:
             vpc_name = ""
+        # Get number of instances in this VPC
+        inst_qty = str(len(vpc['vpc']['ec2_instances']))
         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc['region']}]})
         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc_name}]})
         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc['vpc']['CidrBlock']}]})
         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc['vpc']['VpcId']}]})
+        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":inst_qty}]})
         # inject the row of cells into the table model
         vpc_model['table']['rows'].append({"cells":this_rows_cells})
     # Model has been build, now convert it to a python-docx Word table object
@@ -377,16 +379,20 @@ def add_routes_to_word_doc():
                             row_color = alternating_row_color
                         else:
                             row_color = None
-                        try: # Get Destination CIDR Block
-                            dst_cidr = route['DestinationCidrBlock']
-                        except KeyError:
-                            dst_cidr = ""
-                        try: # Get Gateway ID
-                            gw_id = route['GatewayId']
-                        except KeyError:
-                            gw_id = ""
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":dst_cidr}]})
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":gw_id}]})
+                        # Get Destination
+                        if "DestinationCidrBlock" in route.keys():
+                            destination = route['DestinationCidrBlock']
+                        elif "DestinationPrefixListId" in route.keys():
+                            destination = route['DestinationPrefixListId']
+                        else:
+                            destination = "Unknown Destination Type"
+                        # Get Destination Gateway
+                        if "GatewayId" in route.keys():
+                            gateway = route['GatewayId']
+                        elif "TransitGatewayId" in route.keys():
+                            gateway = route['TransitGatewayId']
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":destination}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":gateway}]})
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Origin']}]})
                         # inject the row of cells into the table model
                         child_model['table']['rows'].append({"cells":this_rows_cells})
@@ -443,11 +449,15 @@ def add_subnets_to_word_doc():
                         route_table = ""
                     # Get Network ACLs
                     net_acls = [assoc['NetworkAclId'] for acl in vpc['network_acls'] for assoc in acl['Associations'] if assoc['SubnetId'] == subnet['SubnetId']]
+                    # Get number of instances in this subnet
+                    inst_qty = str(len([inst['SubnetId'] for inst in vpc['ec2_instances'] if inst['SubnetId'] == subnet['SubnetId']]))
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['CidrBlock']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet_name}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['AvailabilityZone']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route_table}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":net_acls}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['SubnetId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":inst_qty}]})
                     # inject the row of cells into the table model
                     child_model['table']['rows'].append({"cells":this_rows_cells})
                 # Add the child table to the parent table
@@ -1185,7 +1195,7 @@ def add_transit_gateways_to_word_doc():
                 child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":tgw_name})
                 child_model['table']['rows'][0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":tgw['TransitGatewayId']})
                 child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":str(tgw['Options']['AmazonSideAsn'])})
-                child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing" if tgw['OwnerId'] == topology['account_id'] else "redtext","text":tgw['OwnerId']})
+                child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing" if tgw['OwnerId'] == topology['account']['id'] else "redtext","text":tgw['OwnerId']})
                 # Populate child table model with attachment header
                 child_model['table']['rows'].append(word_table_models.tgw_attachment_tbl_header)
                 # Populate child table with attachments
@@ -1470,7 +1480,9 @@ if __name__ == "__main__":
             ec2 = boto3.client('ec2', verify=False)
             available_regions = get_regions()
             topology = {}
-            topology['account_id'] = boto3.client('sts').get_caller_identity().get('Account')
+            topology['account']['id'] = boto3.client('sts').get_caller_identity().get('Account')
+            topology['account']['alias'] = boto3.client('iam').list_account_aliases()['AccountAliases'][0]
+            print(topology['account']['alias'])
 
             add_regions_to_topology()
 
@@ -1538,13 +1550,15 @@ if __name__ == "__main__":
         except:
             rprint(f"\n\n:x: [red]Could not save output to {output_file}. If it is open please close and try again.\n\n")
             sys.exit()
-        rprint("    [yellow]Saving raw AWS topology...")
-        with open(topology_file, "w") as f:
-            f.write(json.dumps(topology,indent=4,default=datetime_converter))
+        if not args.skip_topology:
+            rprint("    [yellow]Saving raw AWS topology...")
+            with open(topology_file, "w") as f:
+                f.write(json.dumps(topology,indent=4,default=datetime_converter))
 
         rprint(f"\n\n[green]FILES WRITTEN, ALL DONE!!!!")
         rprint(f"    [green]AWS As-Built Word Document written to: [blue]{os.getcwd()}/{output_file}")
-        rprint(f"    [green]Raw AWS topology file written to: [blue]{os.getcwd()}/{topology_file}")
+        if not args.skip_topology:
+            rprint(f"    [green]Raw AWS topology file written to: [blue]{os.getcwd()}/{topology_file}")
         rprint("[yellow]NOTE: Be sure to update the Word Document Table of Contents as dynamically-created headlines will not be reflected in the TOC until that is done.\n\n")
     except KeyboardInterrupt:
         rprint("\n\n[red]Exiting due to keyboard interrupt...\n")
