@@ -20,7 +20,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 # GLOBAL VARIABLES
-output_verbosity = 1   # 0 (Default) or 1 (Verbose)
+output_verbosity = 0   # 0 (Default) or 1 (Verbose)
 topology_folder = "topologies"
 word_template = "template.docx"
 output_file = "AWS As-Built.docx"
@@ -58,7 +58,6 @@ def get_regions():
     else:
         response = ec2.describe_regions()
         discovered_regions = [x['RegionName'] for x in response['Regions']]
-        print(f"Discovered Regions: {discovered_regions}")
         return discovered_regions
 
 def add_regions_to_topology():
@@ -1480,9 +1479,10 @@ if __name__ == "__main__":
             ec2 = boto3.client('ec2', verify=False)
             available_regions = get_regions()
             topology = {}
-            topology['account'] = {"id": boto3.client('sts', verify=False).get_caller_identity().get('Account')}
-            topology['account'] = {"alias": boto3.client('iam', verify=False).list_account_aliases()['AccountAliases'][0]}
-            print(topology['account'])
+            topology['account'] = {
+                "id": boto3.client('sts', verify=False).get_caller_identity().get('Account'),
+                "alias": boto3.client('iam', verify=False).list_account_aliases()['AccountAliases'][0]
+            }
 
             add_regions_to_topology()
 
