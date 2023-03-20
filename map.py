@@ -1,4 +1,4 @@
-import boto3, botocore.exceptions, requests, sys, datetime, json, os, argparse, pathlib, datetime
+import boto3, botocore.exceptions, requests, sys, datetime, json, os, argparse, pathlib, datetime, platform
 from rich import print as rprint
 from rich import print_json as jprint
 from docx import Document
@@ -1553,6 +1553,11 @@ if __name__ == "__main__":
 
         rprint("\n\n[yellow]STEP 7/7: WRITING ARTIFACTS TO FILE SYSTEM")
         rprint("    [yellow]Saving Word document...")
+        # Get Platform
+        system_os = platform.system().lower()
+        def slasher():
+            # Returns the correct file system slash for the detected platform
+            return "\\" if system_os == "windows" else "/"
         try:
             doc_obj.save(output_file)
         except:
@@ -1560,13 +1565,13 @@ if __name__ == "__main__":
             sys.exit()
         if not args.skip_topology:
             rprint("    [yellow]Saving raw AWS topology...")
-            with open(f"{os.getcwd()}/{topology_folder}/{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json", "w") as f:
+            with open(f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json", "w") as f:
                 f.write(json.dumps(topology,indent=4,default=datetime_converter))
 
         rprint(f"\n\n[green]FILES WRITTEN, ALL DONE!!!!")
         rprint(f"    [green]AWS As-Built Word Document written to: [blue]{os.getcwd()}/{output_file}")
         if not args.skip_topology:
-            rprint(f"    [green]Raw AWS topology file written to: [blue]{os.getcwd()}/{topology_folder}/{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json")
+            rprint(f"    [green]Raw AWS topology file written to: [blue]{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['alias']} topology {str(datetime.datetime.now()).split()[0].replace('-','')}.json")
         rprint("[yellow]NOTE: Be sure to update the Word Document Table of Contents as dynamically-created headlines will not be reflected in the TOC until that is done.\n\n")
     except KeyboardInterrupt:
         rprint("\n\n[red]Exiting due to keyboard interrupt...\n")
