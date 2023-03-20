@@ -1,4 +1,4 @@
-import boto3, botocore.exceptions, requests, sys, datetime, json, os, argparse
+import boto3, botocore.exceptions, requests, sys, datetime, json, os, argparse, pathlib, datetime
 from rich import print as rprint
 from rich import print_json as jprint
 from docx import Document
@@ -21,7 +21,7 @@ args = parser.parse_args()
 
 # GLOBAL VARIABLES
 output_verbosity = 1   # 0 (Default) or 1 (Verbose)
-topology_file = "topology.json"
+topology_folder = "topologies"
 word_template = "template.docx"
 output_file = "AWS As-Built.docx"
 table_header_color = "506279"
@@ -1501,8 +1501,16 @@ if __name__ == "__main__":
             rprint("\n\n[yellow]STEP 5/7: DISCOVERING DIRECT CONNECT")
             add_direct_connect_to_topology()
         else:
-            with open(topology_file, "r") as f:
-                topology = json.load(f)
+            # Get the first toplogy file from the current working directory
+            fp = pathlib.Path(os.getcwd())
+            file_list = [f.name for f in fp.iterdir() if f.is_file() and f.name.endswith(".json")]
+            if len(file_list) > 1:
+                rprint("\n\n :x: [red]Multiple Topology files detected in the current working directory.")
+                rprint("[red]Please ensure only one exists. Exiting...")
+                sys.exit(1)
+            else:
+                with open(file_list[0], "r") as f:
+                    topology = json.load(f)
 
         filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
 
@@ -1552,13 +1560,13 @@ if __name__ == "__main__":
             sys.exit()
         if not args.skip_topology:
             rprint("    [yellow]Saving raw AWS topology...")
-            with open(topology_file, "w") as f:
+            with open(f"{os.getcwd()}/{topology_folder}/{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json", "w") as f:
                 f.write(json.dumps(topology,indent=4,default=datetime_converter))
 
         rprint(f"\n\n[green]FILES WRITTEN, ALL DONE!!!!")
         rprint(f"    [green]AWS As-Built Word Document written to: [blue]{os.getcwd()}/{output_file}")
         if not args.skip_topology:
-            rprint(f"    [green]Raw AWS topology file written to: [blue]{os.getcwd()}/{topology_file}")
+            rprint(f"    [green]Raw AWS topology file written to: [blue]{os.getcwd()}/{topology_folder}/{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json")
         rprint("[yellow]NOTE: Be sure to update the Word Document Table of Contents as dynamically-created headlines will not be reflected in the TOC until that is done.\n\n")
     except KeyboardInterrupt:
         rprint("\n\n[red]Exiting due to keyboard interrupt...\n")
