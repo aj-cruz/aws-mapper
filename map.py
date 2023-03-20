@@ -1480,8 +1480,8 @@ if __name__ == "__main__":
             ec2 = boto3.client('ec2', verify=False)
             available_regions = get_regions()
             topology = {}
-            topology['account']['id'] = boto3.client('sts').get_caller_identity().get('Account')
-            topology['account']['alias'] = boto3.client('iam').list_account_aliases()['AccountAliases'][0]
+            topology['account'] = {"id": boto3.client('sts').get_caller_identity().get('Account')}
+            topology['account'] = {"alias": boto3.client('iam').list_account_aliases()['AccountAliases'][0]}
             print(topology['account']['alias'])
 
             add_regions_to_topology()
