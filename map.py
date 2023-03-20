@@ -48,8 +48,8 @@ def create_word_obj_from_template(tfile):
     try:
         return Document(tfile)
     except:
-        print(f"Could not open {tfile}. Please make sure it exists and is a valid Microsoft Word document. Exiting...")
-        sys.exit()
+        rprint(f"\n\n:x: [red]Could not open [blue]{tfile}[red]. Please make sure it exists and is a valid Microsoft Word document. Exiting...")
+        sys.exit(1)
 
 # MAIN FUNCTIONS
 def get_regions():
@@ -1482,7 +1482,7 @@ if __name__ == "__main__":
             topology = {}
             topology['account'] = {"id": boto3.client('sts', verify=False).get_caller_identity().get('Account')}
             topology['account'] = {"alias": boto3.client('iam', verify=False).list_account_aliases()['AccountAliases'][0]}
-            print(topology['account']['alias'])
+            print(topology['account'])
 
             add_regions_to_topology()
 
