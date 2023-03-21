@@ -215,7 +215,6 @@ def add_network_elements_to_vpcs():
                 vpc['ec2_groups'] = ec2_groups
 
 def add_prefix_lists_to_topology():
-    pls = [pl for pl in ec2.describe_prefix_lists()['PrefixLists']]
     for region in topology:
         if not region in non_region_topology_keys:
             rprint(f"    [yellow]Interrogating Region {region} for VPCs...")
