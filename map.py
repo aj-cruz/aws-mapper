@@ -1679,9 +1679,13 @@ if __name__ == "__main__":
             ec2 = boto3.client('ec2', verify=False)
             available_regions = get_regions()
             topology = {}
+            try: 
+                account_alias = boto3.client('iam', verify=False).list_account_aliases()['AccountAliases'][0]
+            except IndexError:
+                account_alias = ""
             topology['account'] = {
                 "id": boto3.client('sts', verify=False).get_caller_identity().get('Account'),
-                "alias": boto3.client('iam', verify=False).list_account_aliases()['AccountAliases'][0]
+                "alias": account_alias
             }
 
             add_regions_to_topology()
@@ -1773,14 +1777,20 @@ if __name__ == "__main__":
         def slasher():
             # Returns the correct file system slash for the detected platform
             return "\\" if system_os == "windows" else "/"
-        word_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.docx"
+        if topology['account']['alias'] == "":
+            word_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['id']} {str(datetime.datetime.now()).split()[0].replace('-','')}.docx"
+        else:
+            word_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.docx"
         try:
             doc_obj.save(word_file)
         except:
             rprint(f"\n\n:x: [red]Could not save output to {word_file}. If it is open please close and try again.\n\n")
             sys.exit()
         if not args.skip_topology:
-            topology_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json"
+            if topology['account']['alias'] == "":
+                topology_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['id']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json"
+            else:
+                topology_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json"
             rprint("    [yellow]Saving raw AWS topology...")
             with open(topology_file, "w") as f:
                 f.write(json.dumps(topology,indent=4,default=datetime_converter))
