@@ -228,7 +228,7 @@ def add_prefix_lists_to_topology():
 def add_vpn_customer_gateways_to_topology():
     for region, v in topology.items():
         if not region in non_region_topology_keys: # Ignore these keys, all the rest are regions
-            ec2 = boto3.client('ec2',region_name=k,verify=False)
+            ec2 = boto3.client('ec2',region_name=region,verify=False)
             try:
                 v['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways'] if "TransitGatewayId" in cgw.keys()]
             except botocore.exceptions.ClientError:
