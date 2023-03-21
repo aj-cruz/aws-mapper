@@ -443,11 +443,11 @@ def add_prefix_lists_to_word_doc():
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":pl['Cidrs']}]})
                     # inject the row of cells into the table model
                     child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Add the child table to the parent table
-                parent_model['table']['rows'].append({"cells":[child_model]})
-            # Model has been build, now convert it to a python-docx Word table object
-            table = build_table(doc_obj, parent_model)
-            replace_placeholder_with_table(doc_obj, "{{py_pls}}", table)
+                    # Add the child table to the parent table
+                    parent_model['table']['rows'].append({"cells":[child_model]})
+                # Model has been build, now convert it to a python-docx Word table object
+                table = build_table(doc_obj, parent_model)
+                replace_placeholder_with_table(doc_obj, "{{py_pls}}", table)
 
 def add_subnets_to_word_doc():
     # Create the parent table model
