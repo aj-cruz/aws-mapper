@@ -444,8 +444,8 @@ def add_prefix_lists_to_word_doc():
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":pl['Cidrs']}]})
                     # inject the row of cells into the table model
                     child_model['table']['rows'].append({"cells":this_rows_cells})
-                    # Add the child table to the parent table
-                    parent_model['table']['rows'].append({"cells":[child_model]})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no Prefix Lists at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Prefix Lists Present"}]}]})
