@@ -229,7 +229,7 @@ def add_vpn_customer_gateways_to_topology():
     for k, v in topology.items():
         if not k in non_region_topology_keys: # Ignore these keys, all the rest are regions
             ec2 = boto3.client('ec2',region_name=k,verify=False)
-            v['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways']]
+            v['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways'] if "TransitGatewayId" in cgw.keys()]
 
 def add_vpc_peering_connections_to_topology():
     pcx = [conn for conn in ec2.describe_vpc_peering_connections()['VpcPeeringConnections']]
