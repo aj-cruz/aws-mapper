@@ -214,6 +214,18 @@ def add_network_elements_to_vpcs():
                 vpc['ec2_instances'] = ec2_instances
                 vpc['ec2_groups'] = ec2_groups
 
+def add_prefix_lists_to_topology():
+    pls = [pl for pl in ec2.describe_prefix_lists()['PrefixLists']]
+    for region in topology:
+        if not region in non_region_topology_keys:
+            rprint(f"    [yellow]Interrogating Region {region} for VPCs...")
+            ec2 = boto3.client('ec2',region_name=region,verify=False)
+            try:
+                pls = [pl for pl in ec2.describe_prefix_lists()['PrefixLists']]
+                topology[region]['prefix_lists'] = pls
+            except botocore.exceptions.ClientError:
+                rprint(f":x: [red]Client Error reported for region {region}. Most likely no VPCs exist, continuing...")
+
 def add_vpc_peering_connections_to_topology():
     pcx = [conn for conn in ec2.describe_vpc_peering_connections()['VpcPeeringConnections']]
     topology['vpc_peering_connections'] = pcx
@@ -1485,19 +1497,22 @@ if __name__ == "__main__":
 
             add_regions_to_topology()
 
-            rprint("\n[yellow]STEP 1/7: DISCOVER REGION VPCS")
+            rprint("\n[yellow]STEP 1/8: DISCOVER REGION VPCS")
             add_vpcs_to_topology()
 
-            rprint("\n\n[yellow]STEP 2/7: DISCOVER VPC NETWORK ELEMENTS")
+            rprint("\n\n[yellow]STEP 2/8: DISCOVER VPC NETWORK ELEMENTS")
             add_network_elements_to_vpcs()
 
-            rprint("\n\n[yellow]STEP 3/7: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
+            rprint("\n[yellow]STEP 3/8: DISCOVER REGION PREFIX LISTS")
+            add_prefix_lists_to_topology()
+
+            rprint("\n\n[yellow]STEP 4/8: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
             add_vpc_peering_connections_to_topology()
 
-            rprint("\n\n[yellow]STEP 4/7: DISCOVERING TRANSIT GATEWAYS")
+            rprint("\n\n[yellow]STEP 5/8: DISCOVERING TRANSIT GATEWAYS")
             add_transit_gateways_to_topology()
 
-            rprint("\n\n[yellow]STEP 5/7: DISCOVERING DIRECT CONNECT")
+            rprint("\n\n[yellow]STEP 6/8: DISCOVERING DIRECT CONNECT")
             add_direct_connect_to_topology()
         else:
             # Get the first toplogy file from the current working directory
@@ -1513,7 +1528,7 @@ if __name__ == "__main__":
 
         filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
 
-        rprint("\n\n[yellow]STEP 6/7: BUILD WORD DOCUMENT OBJECT")
+        rprint("\n\n[yellow]STEP 7/8: BUILD WORD DOCUMENT OBJECT")
         doc_obj = create_word_obj_from_template(word_template)
         rprint("[yellow]    Creating VPC table...")
         add_vpcs_to_word_doc()
@@ -1550,7 +1565,7 @@ if __name__ == "__main__":
         rprint("[yellow]    Creating EC2 Instances table...")
         add_instances_to_word_doc()
 
-        rprint("\n\n[yellow]STEP 7/7: WRITING ARTIFACTS TO FILE SYSTEM")
+        rprint("\n\n[yellow]STEP 8/8: WRITING ARTIFACTS TO FILE SYSTEM")
         rprint("    [yellow]Saving Word document...")
         # Get Platform
         system_os = platform.system().lower()
