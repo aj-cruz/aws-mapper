@@ -602,6 +602,125 @@ tgw_rt_tbl_header = {
     ]
 }
 
+vpn_cgw_tbl = {
+    "table": {
+        "style": "plain",
+        "rows": [
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "NAME"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "DEV NAME"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "IP ADDRESS"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "BGP ASN"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ID"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "TYPE"}]
+                    },
+                ]
+            }
+        ]
+    }
+}
+
+vpn_tgw_conn_tbl = {
+    "table": {
+        "style": "plain",
+        "rows": [
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "CONN NAME"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "VPN ID"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "TGW ID"}]
+                    },
+                    {
+                        "paragraphs": []
+                    }
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "CGW ID"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "TYPE"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "merge": None
+                    },
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "LOCAL CIDR"}]
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "REMOTE CIDR"}]
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "OUTSIDE ADDRESS TYPE"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "INSIDE IP VERSION"}]
+                    },
+                ]
+            }
+        ]
+    }
+}
+
 vgw_tbl = {
     "table": {
         "style": "plain",
@@ -679,34 +798,6 @@ vgw_tbl = {
             }
         ]
     }
-}
-
-vgw_cgw_tbl_header = {
-    "cells": [
-        {
-            "background": table_header_color,
-            "paragraphs": [{"style": "regularbold", "text": "CGW NAME"}]
-        },
-        {
-            "background": table_header_color,
-            "paragraphs": [{"style": "regularbold", "text": "CGW ID"}]
-        },
-        {
-            "merge": None
-        },
-        {
-            "background": table_header_color,
-            "paragraphs": [{"style": "regularbold", "text": "DEV NAME"}]
-        },
-        {
-            "background": table_header_color,
-            "paragraphs": [{"style": "regularbold", "text": "IP ADDRESS"}]
-        },
-        {
-            "background": table_header_color,
-            "paragraphs": [{"style": "regularbold", "text": "BGP ASN"}]
-        },
-    ]
 }
 
 vgw_conn_tbl_header = {

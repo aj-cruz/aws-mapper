@@ -225,6 +225,12 @@ def add_prefix_lists_to_topology():
             except botocore.exceptions.ClientError:
                 rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
 
+def add_vpn_customer_gateways_to_topology():
+    for k, v in topology.items():
+        if not k in non_region_topology_keys: # Ignore these keys, all the rest are regions
+            ec2 = boto3.client('ec2',region_name=k,verify=False)
+            v['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways']]
+
 def add_vpc_peering_connections_to_topology():
     pcx = [conn for conn in ec2.describe_vpc_peering_connections()['VpcPeeringConnections']]
     topology['vpc_peering_connections'] = pcx
@@ -1294,6 +1300,64 @@ def add_transit_gateways_to_word_doc():
     table = build_table(doc_obj, model)
     replace_placeholder_with_table(doc_obj, "{{py_tgws}}", table)
 
+def add_vpn_customer_gateways_to_word():
+    # Create the parent table model
+    parent_model = deepcopy(word_table_models.parent_tbl)
+    # Populate the table model with data
+    for region, attributes in topology.items():
+        if isinstance(attributes, dict) and "customer_gateways" in attributes.keys():
+            # Populate the table model with data
+            if not attributes['customer_gateways']:
+                pass
+            else:
+                this_parent_tbl_rows_cells = []
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
+                # inject the row of cells into the table model
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                # Build the child table
+                child_model = deepcopy(word_table_models.vpn_cgw_tbl)
+                for rownum, cgw in enumerate(attributes['customer_gateways'], start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    try: # Get CGW name
+                        cgw_name = [tag['Value'] for tag in cgw['Tags'] if tag['Key'] == "Name"][0]
+                    except KeyError:
+                        # Object has no name
+                        cgw_name = ""
+                    except IndexError:
+                        # Object has no name
+                        cgw_name = ""
+                    try: # Get CGW Device name
+                        cgw_dev_name = cgw['DeviceName']
+                    except KeyError:
+                        # Object has no name
+                        cgw_dev_name = ""
+                    except IndexError:
+                        # Object has no name
+                        cgw_dev_name = ""
+                    # Build word table rows & cells
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw_dev_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw['IpAddress']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw['BgpAsn']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw['CustomerGatewayId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":cgw['Type']}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
+    # Model has been build, now convert it to a python-docx Word table object
+    if not parent_model['table']['rows']: # Completely Empty Table (no Prefix Lists at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Customer Gateways Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_vpn_cgws}}", table)
+
 def add_vpn_gateways_to_word_doc():
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
@@ -1544,13 +1608,16 @@ if __name__ == "__main__":
             rprint("\n[yellow]STEP 3/8: DISCOVER REGION PREFIX LISTS")
             add_prefix_lists_to_topology()
 
-            rprint("\n\n[yellow]STEP 4/8: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
+            rprint("\n[yellow]STEP 4/9: DISCOVER REGION VPN CUSTOMER GATEWAYS")
+            add_vpn_customer_gateways_to_topology()
+
+            rprint("\n\n[yellow]STEP 5/9: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
             add_vpc_peering_connections_to_topology()
 
-            rprint("\n\n[yellow]STEP 5/8: DISCOVERING TRANSIT GATEWAYS")
+            rprint("\n\n[yellow]STEP 6/9: DISCOVERING REGION TRANSIT GATEWAYS")
             add_transit_gateways_to_topology()
 
-            rprint("\n\n[yellow]STEP 6/8: DISCOVERING DIRECT CONNECT")
+            rprint("\n\n[yellow]STEP 7/9: DISCOVERING DIRECT CONNECT")
             add_direct_connect_to_topology()
         else:
             # Get the first toplogy file from the current working directory
@@ -1566,7 +1633,7 @@ if __name__ == "__main__":
 
         filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
 
-        rprint("\n\n[yellow]STEP 7/8: BUILD WORD DOCUMENT OBJECT")
+        rprint("\n\n[yellow]STEP 8/9: BUILD WORD DOCUMENT OBJECT")
         doc_obj = create_word_obj_from_template(word_template)
         rprint("[yellow]    Creating VPC table...")
         add_vpcs_to_word_doc()
@@ -1600,12 +1667,14 @@ if __name__ == "__main__":
         add_vpc_peerings_to_word_doc()
         rprint("[yellow]    Creating Transit Gateways table...")
         add_transit_gateways_to_word_doc()
+        rprint("[yellow]    Creating VPN Customer Gateways table...")
+        add_vpn_customer_gateways_to_word()
         rprint("[yellow]    Creating VPN Gateways table...")
         add_vpn_gateways_to_word_doc()
         rprint("[yellow]    Creating EC2 Instances table...")
         add_instances_to_word_doc()
 
-        rprint("\n\n[yellow]STEP 8/8: WRITING ARTIFACTS TO FILE SYSTEM")
+        rprint("\n\n[yellow]STEP 9/9: WRITING ARTIFACTS TO FILE SYSTEM")
         rprint("    [yellow]Saving Word document...")
         # Get Platform
         system_os = platform.system().lower()
