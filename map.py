@@ -1406,7 +1406,6 @@ def add_vpn_tgw_connections_to_word():
                     child_model['table']['rows'][0]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":conn['TransitGatewayId']})
                     child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":conn['CustomerGatewayId']})
                     child_model['table']['rows'][1]['cells'][4]['paragraphs'].append({"style":"No Spacing","text":conn['Type']})
-                    child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":conn_name})
                     next_row = []
                     next_row.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['LocalIpv4NetworkCidr']}]})
                     next_row.append({"merge":None})
@@ -1417,6 +1416,28 @@ def add_vpn_tgw_connections_to_word():
                     child_model['table']['rows'].append({"cells":next_row})
                     # Add the child table to the parent table
                     parent_model['table']['rows'].append({"cells":[child_model]})
+                    conn_label = conn_name if not conn_name == "" else conn['VpnConnectionId']
+                    child_model['table']['rows'].append({"cells":[{"background":new_section_color2,"paragraphs":[{"style":"regularbold","text":f"{conn_label} VPN CONNECTION TUNNELS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                    child_model['table']['rows'].append(word_table_models.vgw_conn_tunnel_tbl_header)
+                    for rownum2, tun in enumerate(conn['Options']['TunnelOptions'], start=1):
+                        this_rows_cells = []
+                        # Shade every other row for readability
+                        if not (rownum2 % 2) == 0:
+                            row_color = alternating_row_color
+                        else:
+                            row_color = None
+                        # Get this tunnels IPSec status and tunnel status
+                        ipsec_status = [status['StatusMessage'] for status in conn['VgwTelemetry'] if status['OutsideIpAddress'] == tun['OutsideIpAddress']][0]
+                        tun_status = [status['Status'] for status in conn['VgwTelemetry'] if status['OutsideIpAddress'] == tun['OutsideIpAddress']][0]
+                        # Add connection rows to table
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tun['OutsideIpAddress']}]})
+                        this_rows_cells.append({"merge":None})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tun['TunnelInsideCidr']}]})
+                        this_rows_cells.append({"merge":None})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ipsec_status}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tun_status}]})
+                        # inject cells into the child table row
+                        child_model['table']['rows'].append({"cells":this_rows_cells})
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no Prefix Lists at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPN Transit Gateway Connections present"}]}]})
