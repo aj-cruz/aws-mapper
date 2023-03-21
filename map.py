@@ -418,35 +418,36 @@ def add_prefix_lists_to_word_doc():
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, attributes in filtered_topology.items():
-        if not attributes['prefix_lists']:
-            pass
-        else:
-            this_parent_tbl_rows_cells = []
-            # Create the parent table row and cells
-            this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
-            # inject the row of cells into the table model
-            parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-            # Build the child table
-            child_model = deepcopy(word_table_models.prefix_list_tbl)
-            for rownum, pl in enumerate(attibutes['prefix_lists'], start=1):
-                this_rows_cells = []
-                # Shade every other row for readability
-                if not (rownum % 2) == 0:
-                    row_color = alternating_row_color
-                else:
-                    row_color = None
-                # Build word table rows & cells
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":pl['PrefixListName']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":pl['PrefixListId']}]})
-                this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":pl['Cidrs']}]})
+    for region, attributes in topology.items():
+        if "prefix_lists" in attributes.keys():
+            if not attributes['prefix_lists']:
+                pass
+            else:
+                this_parent_tbl_rows_cells = []
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]})
                 # inject the row of cells into the table model
-                child_model['table']['rows'].append({"cells":this_rows_cells})
-            # Add the child table to the parent table
-            parent_model['table']['rows'].append({"cells":[child_model]})
-    # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_pls}}", table)
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                # Build the child table
+                child_model = deepcopy(word_table_models.prefix_list_tbl)
+                for rownum, pl in enumerate(attributes['prefix_lists'], start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    # Build word table rows & cells
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":pl['PrefixListName']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":pl['PrefixListId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":pl['Cidrs']}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
+            # Model has been build, now convert it to a python-docx Word table object
+            table = build_table(doc_obj, parent_model)
+            replace_placeholder_with_table(doc_obj, "{{py_pls}}", table)
 
 def add_subnets_to_word_doc():
     # Create the parent table model
