@@ -1391,7 +1391,7 @@ def add_vpn_tgw_connections_to_word():
                 for rownum, conn in enumerate(attributes['vpn_tgw_connections'], start=1):
                     child_model = deepcopy(word_table_models.vpn_tgw_conn_tbl)
                     if rownum > 1: # Add a line break between connections for readability
-                        parent_model['table']['rows'].append({"cells":[{"paragraphs":["style":"No Spacing","text":""]}]})
+                        parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":""}]}]})
                     try: # Get Connection name
                         conn_name = [tag['Value'] for tag in conn['Tags'] if tag['Key'] == "Name"][0]
                     except KeyError:
