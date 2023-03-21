@@ -139,6 +139,30 @@ subnet_tbl = {
     }
 }
 
+prefix_list_tbl = {
+    "table": {
+        "style": "plain",
+        "rows": [
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "NAME"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ID"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "CIDRS"}]
+                    }
+                ]
+            }
+        ]
+    }
+}
+
 netacls_tbl = {
     "table": {
         "style": "plain",
