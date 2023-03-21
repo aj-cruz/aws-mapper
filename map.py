@@ -1388,8 +1388,10 @@ def add_vpn_tgw_connections_to_word():
                 # inject the row of cells into the table model
                 parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
                 # Build the child table
-                child_model = deepcopy(word_table_models.vpn_tgw_conn_tbl)
                 for rownum, conn in enumerate(attributes['vpn_tgw_connections'], start=1):
+                    child_model = deepcopy(word_table_models.vpn_tgw_conn_tbl)
+                    if rownum > 1: # Add a line break between connections for readability
+                        parent_model['table']['rows'].append({"cells":[{"paragraphs":["style":"No Spacing","text":""]}]})
                     try: # Get Connection name
                         conn_name = [tag['Value'] for tag in conn['Tags'] if tag['Key'] == "Name"][0]
                     except KeyError:
@@ -1413,8 +1415,8 @@ def add_vpn_tgw_connections_to_word():
                     next_row.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['OutsideIpAddressType']}]})
                     next_row.append({"paragraphs":[{"style":"No Spacing","text":conn['Options']['TunnelInsideIpVersion']}]})
                     child_model['table']['rows'].append({"cells":next_row})
-                # Add the child table to the parent table
-                parent_model['table']['rows'].append({"cells":[child_model]})
+                    # Add the child table to the parent table
+                    parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no Prefix Lists at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPN Transit Gateway Connections present"}]}]})
