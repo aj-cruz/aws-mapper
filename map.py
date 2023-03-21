@@ -231,7 +231,7 @@ def add_vpn_customer_gateways_to_topology():
             rprint(f"    [yellow]Interrogating Region {region} for Customer Gateways...")
             ec2 = boto3.client('ec2',region_name=region,verify=False)
             try:
-                v['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways'] if "TransitGatewayId" in cgw.keys()]
+                v['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways']]
             except botocore.exceptions.ClientError:
                 rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
 
