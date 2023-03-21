@@ -228,6 +228,7 @@ def add_prefix_lists_to_topology():
 def add_vpn_customer_gateways_to_topology():
     for region, v in topology.items():
         if not region in non_region_topology_keys: # Ignore these keys, all the rest are regions
+            rprint(f"    [yellow]Interrogating Region {region} for Customer Gateways...")
             ec2 = boto3.client('ec2',region_name=region,verify=False)
             try:
                 v['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways'] if "TransitGatewayId" in cgw.keys()]
@@ -1356,7 +1357,7 @@ def add_vpn_customer_gateways_to_word():
                 parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no Prefix Lists at all)
-        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Customer Gateways Present"}]}]})
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Customer Gateways attached to transit gateways present"}]}]})
     else:
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_vpn_cgws}}", table)
@@ -1498,7 +1499,7 @@ def add_vpn_gateways_to_word_doc():
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
     else:
         table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_vgws}}", table)
+        replace_placeholder_with_table(doc_obj, "{{py_vpn_vpgs}}", table)
 
 def add_instances_to_word_doc():
     # Create the parent table model
