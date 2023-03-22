@@ -1729,6 +1729,7 @@ def add_instances_to_word_doc():
 if __name__ == "__main__":
     try:
         if not args.skip_topology:
+            system_os = platform.system().lower()
             ec2 = boto3.client('ec2', verify=False)
             available_regions = get_regions()
             topology = {}
