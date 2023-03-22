@@ -1212,34 +1212,38 @@ def add_endpoints_to_word_doc():
                     vpc_name = ""
                 except IndexError:
                     vpc_name == ""
+                vpc_label = vpc_name if not vpc_name == "" else vpc['VpcId']
                 # Create the parent table row and cells
-                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_label}"}]})
                 # inject the row of cells into the table model
                 parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
-                # Build the child table
-                child_model = deepcopy(word_table_models.endpoint_tbl)
-                for rownum, ep in enumerate(sorted(vpc['endpoints'], key = lambda d : d['VpcEndpointType']), start=1):
-                    this_rows_cells = []
-                    # Shade every other row for readability
-                    if not (rownum % 2) == 0:
-                        row_color = alternating_row_color
-                    else:
-                        row_color = None
-                    try: # Get the Subnet Name
-                        ep_name = [tag['Value'] for tag in ep['Tags'] if tag['Key'] == "Name"][0]
-                    except KeyError as e:
-                        # Object has no name
-                        ep_name = ""
-                    except IndexError:
-                        ep_name = ""
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep_name}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['VpcEndpointId']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['VpcEndpointType']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['ServiceName']}]})
-                    # inject the row of cells into the table model
-                    child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Add the child table to the parent table
-                parent_model['table']['rows'].append({"cells":[child_model]})
+                if not vpc['endpoints']:
+                    parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":"No Endpoints present"}]}]})
+                else:
+                    # Build the child table
+                    child_model = deepcopy(word_table_models.endpoint_tbl)
+                    for rownum, ep in enumerate(sorted(vpc['endpoints'], key = lambda d : d['VpcEndpointType']), start=1):
+                        this_rows_cells = []
+                        # Shade every other row for readability
+                        if not (rownum % 2) == 0:
+                            row_color = alternating_row_color
+                        else:
+                            row_color = None
+                        try: # Get the Subnet Name
+                            ep_name = [tag['Value'] for tag in ep['Tags'] if tag['Key'] == "Name"][0]
+                        except KeyError as e:
+                            # Object has no name
+                            ep_name = ""
+                        except IndexError:
+                            ep_name = ""
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep_name}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['VpcEndpointId']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['VpcEndpointType']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['ServiceName']}]})
+                        # inject the row of cells into the table model
+                        child_model['table']['rows'].append({"cells":this_rows_cells})
+                    # Add the child table to the parent table
+                    parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Endpoints Present"}]}]})
