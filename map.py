@@ -1729,7 +1729,6 @@ def add_instances_to_word_doc():
 if __name__ == "__main__":
     try:
         if not args.skip_topology:
-            system_os = platform.system().lower()
             ec2 = boto3.client('ec2', verify=False)
             available_regions = get_regions()
             topology = {}
@@ -1827,7 +1826,7 @@ if __name__ == "__main__":
         rprint("\n\n[yellow]STEP 10/10: WRITING ARTIFACTS TO FILE SYSTEM")
         rprint("    [yellow]Saving Word document...")
         # Get Platform
-            
+        system_os = platform.system().lower()
         def slasher():
             # Returns the correct file system slash for the detected platform
             return "\\" if system_os == "windows" else "/"
