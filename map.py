@@ -1810,6 +1810,8 @@ if __name__ == "__main__":
         add_egress_only_internet_gateways_to_word_doc()
         rprint("[yellow]    Creating NAT Gateways table...")
         add_nat_gateways_to_word_doc()
+        rprint("[yellow]    Creating Endpoints table...")
+        add_endpoints_to_word_doc()
         rprint("[yellow]    Creating VPC Peerings table...")
         add_vpc_peerings_to_word_doc()
         rprint("[yellow]    Creating Transit Gateways table...")
