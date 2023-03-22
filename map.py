@@ -213,6 +213,7 @@ def add_network_elements_to_vpcs():
                 ec2_groups = [grp for each in ec2.describe_instances()['Reservations'] for grp in each['Groups']]
                 vpc['ec2_instances'] = ec2_instances
                 vpc['ec2_groups'] = ec2_groups
+                vpc['endpoints'] = [ep for ep in ec2.describe_vpc_endpoints()['VpcEndpoints'] if ep['VpcId'] == vpc['VpcId']]
 
 def add_prefix_lists_to_topology():
     for region in topology:
@@ -1194,6 +1195,58 @@ def add_nat_gateways_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_ngws}}", table)
 
+def add_endpoints_to_word_doc():
+    # Create the parent table model
+    parent_model = deepcopy(word_table_models.parent_tbl)
+    # Populate the table model with data
+    for region, vpcs in filtered_topology.items():
+        if not vpcs:
+            pass
+        else:
+            for vpc in vpcs:
+                this_parent_tbl_rows_cells = []
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
+                except KeyError:
+                    # Object has no name
+                    vpc_name = ""
+                except IndexError:
+                    vpc_name == ""
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
+                # inject the row of cells into the table model
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                # Build the child table
+                child_model = deepcopy(word_table_models.endpoint_tbl)
+                for rownum, ep in enumerate(sorted(vpc['endpoints'], key = lambda d : d['VpcEndpointType']), start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    try: # Get the Subnet Name
+                        ep_name = [tag['Value'] for tag in ep['Tags'] if tag['Key'] == "Name"][0]
+                    except KeyError as e:
+                        # Object has no name
+                        ep_name = ""
+                    except IndexError:
+                        ep_name = ""
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['VpcEndpointId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['VpcEndpointType']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['ServiceName']}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
+    # Model has been build, now convert it to a python-docx Word table object
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Endpoints Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_endpoints}}", table)
+
 def add_vpc_peerings_to_word_doc():
     # Create the base table model
     model = deepcopy(word_table_models.parent_tbl)
@@ -1773,7 +1826,7 @@ if __name__ == "__main__":
         rprint("\n\n[yellow]STEP 10/10: WRITING ARTIFACTS TO FILE SYSTEM")
         rprint("    [yellow]Saving Word document...")
         # Get Platform
-        system_os = platform.system().lower()
+            
         def slasher():
             # Returns the correct file system slash for the detected platform
             return "\\" if system_os == "windows" else "/"

@@ -451,6 +451,34 @@ ngw_address_tbl = {
     }
 }
 
+endpoint_tbl = {
+    "table": {
+        "style": "plain",
+        "rows": [
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "NAME"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ID"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "TYPE"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "SVC NAME"}]
+                    }
+                ]
+            }
+        ]
+    }
+}
+
 vpc_peering_requester_tbl = {
     "table": {
         "style": "plain",
