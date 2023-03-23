@@ -35,7 +35,7 @@ aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "1": "ICMPv4",
     "58": "ICMPv6"
 }
-non_region_topology_keys = ["account", "vpc_peering_connections", "direct_connect"]
+non_region_topology_keys = ["account", "vpc_peering_connections", "direct_connect_gateways"]
 
 # HELPER FUNCTIONS
 def datetime_converter(obj):
