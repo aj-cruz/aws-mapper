@@ -251,9 +251,13 @@ def add_vpc_peering_connections_to_topology():
     topology['vpc_peering_connections'] = pcx
 
 def add_direct_connect_to_topology():
-    ec2dx = boto3.client('directconnect', verify=False)
-    dx = [dx for dx in ec2dx.describe_connections()['connections']]
-    topology['direct_connect'] = dx
+    dx = boto3.client('directconnect', verify=False)
+    dcgws = [dcgw for dcgw in dx.describe_direct_connect_gateways()['directConnectGateways']]
+    topology['direct_connect_gateways'] = dcgws
+    for dcgw in topology['direct_connect_gateways']:
+        dcgw['Attachments'] = [attch for attch in dx.describe_direct_connect_gateway_attachments()['directConnectGatewayAttachments'] if attch['directConnectGatewayid'] == dcgw['directConnectGatewayid']]
+    # dx = [dx for dx in ec2dx.describe_connections()['connections']]
+    # topology['direct_connect'] = dx
 
 def add_transit_gateways_to_topology():
     for region in topology:
