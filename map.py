@@ -256,6 +256,7 @@ def add_direct_connect_to_topology():
     topology['direct_connect_gateways'] = dcgws
     for dcgw in topology['direct_connect_gateways']:
         dcgw['Attachments'] = [attch for attch in dx.describe_direct_connect_gateway_attachments(directConnectGatewayId=dcgw['directConnectGatewayId'])['directConnectGatewayAttachments']]
+        dcgw['Associations'] = [assoc for assoc in dx.describe_direct_connect_gateway_associations(directConnectGatewayId=dcgw['directConnectGatewayId'])['directConnectGatewayAssociations']]
     # dx = [dx for dx in ec2dx.describe_connections()['connections']]
     # topology['direct_connect'] = dx
 
