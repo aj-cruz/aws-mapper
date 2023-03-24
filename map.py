@@ -257,7 +257,10 @@ def add_direct_connect_to_topology():
     for dcgw in topology['direct_connect_gateways']:
         dcgw['Attachments'] = [attch for attch in dx.describe_direct_connect_gateway_attachments(directConnectGatewayId=dcgw['directConnectGatewayId'])['directConnectGatewayAttachments']]
         dcgw['Associations'] = [assoc for assoc in dx.describe_direct_connect_gateway_associations(directConnectGatewayId=dcgw['directConnectGatewayId'])['directConnectGatewayAssociations']]
-        dcgw['VirtualInterfaces'] = [vif for vif in dx.describe_virtual_interfaces()['virtualInterfaces'] if vif['directConnectGatewayId'] == dcgw['directConnectGatewayId']]
+        virtual_interfaces = [vif for vif in dx.describe_virtual_interfaces()['virtualInterfaces'] if vif['directConnectGatewayId'] == dcgw['directConnectGatewayId']]
+        dcgw['Connections'] = [conn for conn in dx.describe_connections()['connections'] if conn['connectionId'] in [vif['connectionId'] for vif in virtual_interfaces]]
+        for conn in dcgw['Connections']:
+            conn['VirtualInterfaces'] = [vif for vif in virtual_interfaces if vif['connectionId'] == conn['connectionId']]
 
 def add_transit_gateways_to_topology():
     for region in topology:
