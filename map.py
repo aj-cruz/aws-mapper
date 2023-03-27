@@ -210,7 +210,7 @@ def add_network_elements_to_vpcs():
                     gw['connections'] = [conn for conn in ec2.describe_vpn_connections()['VpnConnections'] if conn['VpnGatewayId'] == gw['VpnGatewayId']]
                     cgw_ids = [cgw['CustomerGatewayId'] for cgw in gw['connections']]
                     gw['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways'] if cgw['CustomerGatewayId'] in cgw_ids]
-                ec2_instances = [inst for each in ec2.describe_instances()['Reservations'] for inst in each['Instances'] if inst['VpcId'] == vpc['VpcId']]
+                ec2_instances = [inst for each in ec2.describe_instances()['Reservations'] for inst in each['Instances'] if "VpcId" in inst.keys() and inst['VpcId'] == vpc['VpcId']]
                 ec2_groups = [grp for each in ec2.describe_instances()['Reservations'] for grp in each['Groups']]
                 vpc['ec2_instances'] = ec2_instances
                 vpc['ec2_groups'] = ec2_groups
