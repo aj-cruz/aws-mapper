@@ -1,4 +1,4 @@
-from map import table_header_color
+from map import table_header_color, orange_spacer
 
 parent_tbl = {
 		"table": {
@@ -618,15 +618,15 @@ tgw_rt_tbl_header = {
             "paragraphs": [{"style": "regularbold", "text": "ROUTE TABLE NAME"}]
         },
         {
-            "paragraphs": []
+            "merge": None
         },
         {
             "background": table_header_color,
             "paragraphs": [{"style": "regularbold", "text": "ROUTE TABLE ID"}]
         },
         {
-            "paragraphs": []
-        }
+            "merge": None
+        },
     ]
 }
 
@@ -992,6 +992,159 @@ ec2_inst_interface_tbl_header = {
         {
             "background": table_header_color,
             "paragraphs": [{"style": "regularbold", "text": "DEV INDEX"}]
+        },
+    ]
+}
+
+dcgw_tbl = {
+    "table": {
+        "style": "plain",
+        "rows": [
+            {
+                "cells": [
+                    {
+                        "background": orange_spacer,
+                        "paragraphs": [{"style": "regularbold", "text": "DIRECT CONNECT GATEWAY"}]
+                    },
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "GW NAME"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "GW ID"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "AWS ASN"}]
+                    },
+                    {
+                        "paragraphs": []
+                    }
+                ]
+            }
+        ]
+    }
+}
+
+dcgw_conn_rows = [
+    {
+        "cells": [
+            {
+                "background": table_header_color,
+                "paragraphs": [{"style": "regularbold", "text": "NAME"}]
+            },
+            {
+                "paragraphs": []
+            },
+            {
+                "background": table_header_color,
+                "paragraphs": [{"style": "regularbold", "text": "ID"}]
+            },
+            {
+                "paragraphs": []
+            },
+            {
+                "background": table_header_color,
+                "paragraphs": [{"style": "regularbold", "text": "REGION"}]
+            },
+            {
+                "paragraphs": []
+            }
+        ]
+    },
+    {
+        "cells": [
+            {
+                "background": table_header_color,
+                "paragraphs": [{"style": "regularbold", "text": "LOCATION"}]
+            },
+            {
+                "paragraphs": []
+            },
+            {
+                "background": table_header_color,
+                "paragraphs": [{"style": "regularbold", "text": "PARTNER"}]
+            },
+            {
+                "paragraphs": []
+            },
+            {
+                "background": table_header_color,
+                "paragraphs": [{"style": "regularbold", "text": "BANDWIDTH"}]
+            },
+            {
+                "paragraphs": []
+            }
+        ]
+    },
+    {
+        "cells": [
+            {
+                "background": table_header_color,
+                "paragraphs": [{"style": "regularbold", "text": "JUMBO FRAMES"}]
+            },
+            {
+                "paragraphs": []
+            },
+            {
+                "background": table_header_color,
+                "paragraphs": [{"style": "regularbold", "text": "MACSEC CAPABLE"}]
+            },
+            {
+                "paragraphs": []
+            },
+            {
+                "background": table_header_color,
+                "paragraphs": [{"style": "regularbold", "text": "ENCRYPTION STATUS"}]
+            },
+            {
+                "paragraphs": []
+            }
+        ]
+    }
+]
+
+dcgw_vif_header = {
+    "cells": [
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "NAME"}]
+        },
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "TYPE"}]
+        },
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "ID"}]
+        },
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "AMAZON ADDRESS"}]
+        },
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "MTU"}]
+        },
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "BGP PEER:STATUS"}]
         },
     ]
 }

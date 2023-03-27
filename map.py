@@ -24,8 +24,9 @@ output_verbosity = 0   # 0 (Default) or 1 (Verbose)
 topology_folder = "topologies"
 word_template = "template.docx"
 table_header_color = "506279"
-new_section_color = "8FD400" # CC Green/Lime
-new_section_color2 = "F12938" # CC Red
+green_spacer = "8FD400" # CC Green/Lime
+red_spacer = "F12938" # CC Red
+orange_spacer = "FF7900" # CC Orange
 alternating_row_color = "D5DCE4"
 region_list = [] # Leave blank to auto-pull and check all regions
 aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
@@ -1314,6 +1315,7 @@ def add_transit_gateways_to_word_doc():
             for rownum, tgw in enumerate(attributes['transit_gateways']):
                 if rownum > 0: # Inject an empty row to space the data
                     model['table']['rows'].append({"cells":[]})
+                model['table']['rows'].append({"cells": [{"background":orange_spacer, "paragraphs":[{"style":"regularbold","text":"TRANSIT GATEWAY"}]}]})
                 try: # Get TGW name
                     tgw_name = [tag['Value'] for tag in tgw['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
@@ -1328,8 +1330,9 @@ def add_transit_gateways_to_word_doc():
                 child_model['table']['rows'][0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":tgw['TransitGatewayId']})
                 child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":str(tgw['Options']['AmazonSideAsn'])})
                 child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing" if tgw['OwnerId'] == topology['account']['id'] else "redtext","text":tgw['OwnerId']})
-                # Populate child table model with attachment header
-                child_model['table']['rows'].append(word_table_models.tgw_attachment_tbl_header)
+                # Populate child table model with spacer and attachment header
+                child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs":[{"style":"regularbold","text":"ATTACHMENTS"}]},{"merge":None},{"merge":None},{"merge":None}]})
+                child_model['table']['rows'].append(deepcopy(word_table_models.tgw_attachment_tbl_header))
                 # Populate child table with attachments
                 for rownum2, attch in enumerate(tgw['attachments'], start=1):
                     this_rows_cells = []
@@ -1357,9 +1360,16 @@ def add_transit_gateways_to_word_doc():
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt_id}]})
                     # add attachment data row to child table model
                     child_model['table']['rows'].append({"cells":this_rows_cells})
-                # Populate child table with route tables
+                # Populate child table model with spacer and route table header
+                child_model['table']['rows'].append({"cells":[{"background":red_spacer,"paragraphs":[{"style":"regularbold","text":"ROUTE TABLES"}]},{"merge":None},{"merge":None},{"merge":None}]})
+                child_model['table']['rows'].append(deepcopy(word_table_models.tgw_rt_tbl_header))
                 for rownum2, rt in enumerate(tgw['route_tables'], start=1):
-                    rt_header = deepcopy(word_table_models.tgw_rt_tbl_header)
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum2 % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
                     try: # Get TGW RT name
                         rt_name = [tag['Value'] for tag in rt['Tags'] if tag['Key'] == "Name"][0]
                     except KeyError:
@@ -1368,10 +1378,12 @@ def add_transit_gateways_to_word_doc():
                     except IndexError:
                         # Object has no name
                         rt_name = "<unnamed>"
-                    rt_header['cells'][1]['paragraphs'] = [{"style":"No Spacing","text":rt_name}]
-                    rt_header['cells'][3]['paragraphs'] = [{"style":"No Spacing","text":rt['TransitGatewayRouteTableId']}]
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt_name}]})
+                    this_rows_cells.append({"merge":None})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt['TransitGatewayRouteTableId']}]})
+                    this_rows_cells.append({"merge":None})
                     # add route table header row to child table model
-                    child_model['table']['rows'].append(rt_header)
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
                 # Add child model to parent table model
                 model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
@@ -1481,7 +1493,7 @@ def add_vpn_tgw_connections_to_word():
                     # Add the child table to the parent table
                     parent_model['table']['rows'].append({"cells":[child_model]})
                     conn_label = conn_name if not conn_name == "" else conn['VpnConnectionId']
-                    child_model['table']['rows'].append({"cells":[{"background":new_section_color2,"paragraphs":[{"style":"regularbold","text":f"{conn_label} VPN CONNECTION TUNNELS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                    child_model['table']['rows'].append({"cells":[{"background":red_spacer,"paragraphs":[{"style":"regularbold","text":f"{conn_label} VPN CONNECTION TUNNELS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                     child_model['table']['rows'].append(word_table_models.vgw_conn_tunnel_tbl_header)
                     for rownum2, tun in enumerate(conn['Options']['TunnelOptions'], start=1):
                         this_rows_cells = []
@@ -1592,11 +1604,11 @@ def add_vpn_gateways_to_word_doc():
                                 child_model['table']['rows'].append({"cells":this_rows_cells})
                         # Create new section in child table for connections
                         if not gw['connections']:
-                            child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs":[{"style":"regularbold","text":"VPN CONNECTION"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
-                            child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs":[{"style":"No Spacing","text":"no vpn connections present"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                            child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs":[{"style":"regularbold","text":"VPN CONNECTION"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                            child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs":[{"style":"No Spacing","text":"no vpn connections present"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                         else:
                             for conn in gw['connections']:
-                                child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs":[{"style":"regularbold","text":f"{conn['CustomerGatewayId']} VPN CONNECTIONS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                                child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs":[{"style":"regularbold","text":f"{conn['CustomerGatewayId']} VPN CONNECTIONS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                                 child_model['table']['rows'].append(word_table_models.vgw_conn_tbl_header)
                                 this_rows_cells = []
                                 try: # Get Connection name
@@ -1618,7 +1630,7 @@ def add_vpn_gateways_to_word_doc():
                                 child_model['table']['rows'].append({"cells":this_rows_cells})
                                 # Create new section in child table for connection tunnels
                                 conn_label = conn_name if not conn_name == "" else conn['VpnConnectionId']
-                                child_model['table']['rows'].append({"cells":[{"background":new_section_color2,"paragraphs":[{"style":"regularbold","text":f"{conn_label} VPN CONNECTION TUNNELS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                                child_model['table']['rows'].append({"cells":[{"background":red_spacer,"paragraphs":[{"style":"regularbold","text":f"{conn_label} VPN CONNECTION TUNNELS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                                 child_model['table']['rows'].append(word_table_models.vgw_conn_tunnel_tbl_header)
                                 for rownum2, tun in enumerate(conn['Options']['TunnelOptions'], start=1):
                                     this_rows_cells = []
@@ -1647,6 +1659,63 @@ def add_vpn_gateways_to_word_doc():
     else:
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_vpn_vpgs}}", table)
+
+def add_direct_connect_gateways_to_word_doc():
+    # Create the parent table model
+    model = deepcopy(word_table_models.parent_tbl)
+    if not topology['direct_connect_gateways']:
+        model['table']['rows'].append({"cells":[{"paragraphs":[{"style": "No Spacing","text":"No Direct Connect Gateways present"}]}]})
+    else:
+        # Populate the table model with data
+        for i, gw in enumerate(topology['direct_connect_gateways']):
+            if i > 0: # Inject a space between gateways
+                model['table']['rows'].append({"cells":[{"paragraphs":[{"style": "No Spacing","text":""}]}]})
+            # Create child table model & populate header rows with data
+            child_model = deepcopy(word_table_models.dcgw_tbl)
+            child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":gw['directConnectGatewayName']})
+            child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":gw['directConnectGatewayId']})
+            child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":str(gw['amazonSideAsn'])})
+            # Add connections to child model
+            for conn in gw['Connections']:
+                # Insert Connections Spacer
+                child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs":[{"style": "regularbold","text":"CONNECTION"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                conn_header = deepcopy(word_table_models.dcgw_conn_rows)
+                jumbo_frame_capable = "Yes" if conn['jumboFrameCapable'] else "No"
+                macsec_capable = "Yes" if conn['macSecCapable'] else "No"
+                conn_header[0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":conn['connectionName']})
+                conn_header[0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":conn['connectionId']})
+                conn_header[0]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":conn['region']})
+                conn_header[1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":conn['location']})
+                conn_header[1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":conn['partnerName']})
+                conn_header[1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":conn['bandwidth']})
+                conn_header[2]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":jumbo_frame_capable})
+                conn_header[2]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":macsec_capable})
+                conn_header[2]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":conn['portEncryptionStatus']})
+                child_model['table']['rows'] += conn_header
+                # Insert Virtual Interfaces Spacer & header
+                child_model['table']['rows'].append({"cells":[{"background":red_spacer,"paragraphs":[{"style": "regularbold","text":f"CONNECTION '{conn['connectionName']}' VIRTUAL INTERFACES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                child_model['table']['rows'].append(deepcopy(word_table_models.dcgw_vif_header))
+                for rownum, vif in enumerate(conn['VirtualInterfaces'], start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    # Add data to row cells
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vif['virtualInterfaceName']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vif['virtualInterfaceType']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vif['virtualInterfaceId']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vif['amazonAddress']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(vif['mtu'])}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":[f"{peer['customerAddress']}:{peer['bgpStatus']}" for peer in vif['bgpPeers']]}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+            # Add child model to parent table model
+            model['table']['rows'].append({"cells":[child_model]})
+    # Model has been build, now convert it to a python-docx Word table object
+    table = build_table(doc_obj, model)
+    replace_placeholder_with_table(doc_obj, "{{py_dcgws}}", table)
 
 def add_instances_to_word_doc():
     # Create the parent table model
@@ -1701,7 +1770,7 @@ def add_instances_to_word_doc():
                         child_model['table']['rows'][2]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['State']['Name']})
                         # Add network interfaces to table
                         inst_label = inst_name if not inst_name == "" else inst['InstanceId']
-                        child_model['table']['rows'].append({"cells":[{"background":new_section_color,"paragraphs": [{"style": "regularbold", "text": f"{inst_label} NETWORK INTERFACES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                        child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs": [{"style": "regularbold", "text": f"{inst_label} NETWORK INTERFACES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                         if not inst['NetworkInterfaces']:
                             child_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Network Interfaces"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                         else:
@@ -1833,6 +1902,8 @@ if __name__ == "__main__":
         add_vpn_tgw_connections_to_word()
         rprint("[yellow]    Creating VPN Gateways table...")
         add_vpn_gateways_to_word_doc()
+        rprint("[yellow]    Creating Direct Connect Gateways table...")
+        add_direct_connect_gateways_to_word_doc()
         rprint("[yellow]    Creating EC2 Instances table...")
         add_instances_to_word_doc()
 
