@@ -1439,7 +1439,7 @@ def add_transit_gateway_routes_to_word_doc():
     for region, attributes in topology.items():
         if not region in non_region_topology_keys: # Ignore these dictionary keys, they are not a region
             if not attributes['transit_gateway_routes']:
-                parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":"No Transit Gateway Routes present"}]}]})
+                pass
             else:
                 for rt in attributes['transit_gateway_routes']:
                     parent_model['table']['rows'].append(
@@ -1447,15 +1447,31 @@ def add_transit_gateway_routes_to_word_doc():
                     )
                     # Build the child table
                     child_model = deepcopy(word_table_models.tgw_routes_tbl)
-                    for route in rt['Routes']:
+                    for rownum, route in enumerate(rt['Routes'], start=1):
                         this_rows_cells = []
+                        # Shade every other row for readability
+                        if not (rownum % 2) == 0:
+                            row_color = alternating_row_color
+                        else:
+                            row_color = None
+                        try: # Get Resource Type
+                            route_type = route['TransitGatewayAttachments'][0]['ResourceType']
+                        except KeyError:
+                            route_type = "-"
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['DestinationCidrBlock']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Type']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route_type}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Type']}]})
                         # inject the row of cells into the table model
                         child_model['table']['rows'].append({"cells":this_rows_cells})
                     # Add the child table to the parent table
                     parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_tgw_routes}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Transit Gateway Routes Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_tgw_routes}}", table)
 
 def add_vpn_customer_gateways_to_word():
     # Create the parent table model
@@ -1966,7 +1982,7 @@ if __name__ == "__main__":
         add_vpc_peerings_to_word_doc()
         rprint("[yellow]    Creating Transit Gateways table...")
         add_transit_gateways_to_word_doc()
-        rprint("[yellow]    Creating Transit Gateway Routs table...")
+        rprint("[yellow]    Creating Transit Gateway Routes table...")
         add_transit_gateway_routes_to_word_doc()
         rprint("[yellow]    Creating VPN Customer Gateways table...")
         add_vpn_customer_gateways_to_word()
