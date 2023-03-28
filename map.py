@@ -51,6 +51,18 @@ def create_word_obj_from_template(tfile):
         rprint(f"\n\n:x: [red]Could not open [blue]{tfile}[red]. Please make sure it exists and is a valid Microsoft Word document. Exiting...")
         sys.exit(1)
 
+def extract_name_from_aws_tags(tags):
+    # Extract the name from a list of AWS tags
+    try:
+        name = [tag['Value'] for tag in tags if tag['Key'] == "Name"][0]
+    except KeyError:
+        # Object has no name
+        name = "<unnamed>"
+    except IndexError:
+        # Object has no name
+        name = "<unnamed>"
+    return name
+
 # MAIN FUNCTIONS
 def get_regions():
     if region_list:
@@ -302,6 +314,7 @@ def add_transit_gateway_routes_to_topology():
                     )['Routes']]
                     tgw_routes.append({
                         "TransitGatewayRouteTableId": rt['TransitGatewayRouteTableId'],
+                        "TransitGatewayRouteTableName": extract_name_from_aws_tags(rt['Tags']),
                         "Routes":routes
                     })
                 topology[region]['transit_gateway_routes'] = tgw_routes
@@ -1419,6 +1432,30 @@ def add_transit_gateways_to_word_doc():
     table = build_table(doc_obj, model)
     replace_placeholder_with_table(doc_obj, "{{py_tgws}}", table)
 
+def add_transit_gateway_routes_to_word_doc():
+    # Create the parent table model
+    parent_model = deepcopy(word_table_models.parent_tbl)
+    # Populate the table model with data
+    for region, attributes in filtered_topology.items():
+        if not attributes['transit_gateway_routes']:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":"No Transit Gateway Routes present"}]}]})
+        else:
+            parent_model['table']['rows'].append(
+                {"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / RT: {route['TransitGatewayRouteTableName']} ({route['TransitGatewayRouteTableId']})"}]}
+            )
+            # Build the child table
+            child_model = deepcopy(word_table_models.tgw_routes_tbl)
+            for route in attributes['transit_gateway_routes']:
+                this_rows_cells = []
+                # Create the parent table row and cells
+                # inject the row of cells into the table model
+                child_model['table']['rows'].append({"cells":this_rows_cells})
+            # Add the child table to the parent table
+            parent_model['table']['rows'].append({"cells":[child_model]})
+    # Model has been build, now convert it to a python-docx Word table object
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_tgw_routes}}", table)
+
 def add_vpn_customer_gateways_to_word():
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
@@ -1928,6 +1965,8 @@ if __name__ == "__main__":
         add_vpc_peerings_to_word_doc()
         rprint("[yellow]    Creating Transit Gateways table...")
         add_transit_gateways_to_word_doc()
+        rprint("[yellow]    Creating Transit Gateway Routs table...")
+        add_transit_gateway_routes_to_word_doc()
         rprint("[yellow]    Creating VPN Customer Gateways table...")
         add_vpn_customer_gateways_to_word()
         rprint("[yellow]    Creating VPN Transit Gateway Connections table...")

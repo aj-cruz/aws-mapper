@@ -630,6 +630,34 @@ tgw_rt_tbl_header = {
     ]
 }
 
+tgw_routes_tbl = {
+    "table": {
+        "style": "plain",
+        "rows": [
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "CIDR"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "RESOURCE TYPE"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ROUTE TYPE"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ROUTE STATE"}]
+                    }
+                ]
+            }
+        ]
+    }
+}
+
 vpn_cgw_tbl = {
     "table": {
         "style": "plain",
