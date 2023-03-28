@@ -282,6 +282,35 @@ def add_transit_gateways_to_topology():
                 else:
                     print(e)
 
+def add_transit_gateway_routes_to_topology():
+    for region in topology:
+       if not region in non_region_topology_keys: # Ignore these dictionary keys, they're not a region, all others are regions
+            rprint(f"    [yellow]Interrogating Region {region} for Transit Gateway Routes...")
+            ec2 = boto3.client('ec2',region_name=region,verify=False) 
+            try:
+                tgw_rts = [rt for rt in ec2.describe_transit_gateway_route_tables()['TransitGatewayRouteTables']]
+                tgw_routes = []
+                for rt in tgw_rts:
+                    routes = [route for route in ec2.search_transit_gateway_routes(
+                        TransitGatewayRouteTableId = rt['TransitGatewayRouteTableId'],
+                        Filters = [
+                            {
+                                "Name": "state",
+                                "Values": ["active","blackhole"]
+                            }
+                        ]
+                    )['Routes']]
+                    tgw_routes.append({
+                        "TransitGatewayRouteTableId": rt['TransitGatewayRouteTableId'],
+                        "Routes":routes
+                    })
+                topology[region]['transit_gateway_routes'] = tgw_routes
+            except botocore.exceptions.ClientError as e:
+                if "(UnauthorizedOperation)" in str(e):
+                    rprint(f"[red]Unauthorized Operation reported while pulling Transit Gateway Route Tables from {region}. Skipping...")
+                else:
+                    print(e)
+
 # BUILD WORD TABLE FUNCTIONS
 def add_vpcs_to_word_doc():
     # Create the base table model
@@ -527,7 +556,7 @@ def add_subnets_to_word_doc():
                     # Get Network ACLs
                     net_acls = [assoc['NetworkAclId'] for acl in vpc['network_acls'] for assoc in acl['Associations'] if assoc['SubnetId'] == subnet['SubnetId']]
                     # Get number of instances in this subnet
-                    inst_qty = str(len([inst['SubnetId'] for inst in vpc['ec2_instances'] if inst['SubnetId'] == subnet['SubnetId']]))
+                    inst_qty = str(len([inst['SubnetId'] for inst in vpc['ec2_instances'] for intf in inst['NetworkInterfaces'] if intf['SubnetId'] == subnet['SubnetId']]))
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['CidrBlock']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet_name}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnet['AvailabilityZone']}]})
@@ -1823,28 +1852,31 @@ if __name__ == "__main__":
 
             add_regions_to_topology()
 
-            rprint("\n[yellow]STEP 1/10: DISCOVER REGION VPCS")
+            rprint("\n[yellow]STEP 1/11: DISCOVER REGION VPCS")
             add_vpcs_to_topology()
 
-            rprint("\n\n[yellow]STEP 2/10: DISCOVER VPC NETWORK ELEMENTS")
+            rprint("\n\n[yellow]STEP 2/11: DISCOVER VPC NETWORK ELEMENTS")
             add_network_elements_to_vpcs()
 
-            rprint("\n[yellow]STEP 3/10: DISCOVER REGION PREFIX LISTS")
+            rprint("\n[yellow]STEP 3/11: DISCOVER REGION PREFIX LISTS")
             add_prefix_lists_to_topology()
 
-            rprint("\n[yellow]STEP 4/10: DISCOVER REGION VPN CUSTOMER GATEWAYS")
+            rprint("\n[yellow]STEP 4/11: DISCOVER REGION VPN CUSTOMER GATEWAYS")
             add_vpn_customer_gateways_to_topology()
 
-            rprint("\n[yellow]STEP 5/10: DISCOVER REGION VPN CONNECTIONS ATTACHED TO TRANSIT GATEAWAYS")
+            rprint("\n[yellow]STEP 5/11: DISCOVER REGION VPN CONNECTIONS ATTACHED TO TRANSIT GATEAWAYS")
             add_vpn_tgw_connections_to_topology()
 
-            rprint("\n\n[yellow]STEP 6/10: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
+            rprint("\n\n[yellow]STEP 6/11: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
             add_vpc_peering_connections_to_topology()
 
-            rprint("\n\n[yellow]STEP 7/10: DISCOVERING REGION TRANSIT GATEWAYS")
+            rprint("\n\n[yellow]STEP 7/11: DISCOVERING REGION TRANSIT GATEWAYS")
             add_transit_gateways_to_topology()
 
-            rprint("\n\n[yellow]STEP 8/10: DISCOVERING DIRECT CONNECT")
+            rprint("\n\n[yellow]STEP 8/11: DISCOVERING REGION TRANSIT GATEWAY ROUTES")
+            add_transit_gateway_routes_to_topology()
+
+            rprint("\n\n[yellow]STEP 9/11: DISCOVERING DIRECT CONNECT")
             add_direct_connect_to_topology()
         else:
             # Get the first toplogy file from the current working directory
@@ -1860,7 +1892,7 @@ if __name__ == "__main__":
 
         filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
 
-        rprint("\n\n[yellow]STEP 9/10: BUILD WORD DOCUMENT OBJECT")
+        rprint("\n\n[yellow]STEP 10/11: BUILD WORD DOCUMENT OBJECT")
         doc_obj = create_word_obj_from_template(word_template)
         rprint("[yellow]    Creating VPC table...")
         add_vpcs_to_word_doc()
@@ -1907,7 +1939,7 @@ if __name__ == "__main__":
         rprint("[yellow]    Creating EC2 Instances table...")
         add_instances_to_word_doc()
 
-        rprint("\n\n[yellow]STEP 10/10: WRITING ARTIFACTS TO FILE SYSTEM")
+        rprint("\n\n[yellow]STEP 11/11: WRITING ARTIFACTS TO FILE SYSTEM")
         rprint("    [yellow]Saving Word document...")
         # Get Platform
         system_os = platform.system().lower()

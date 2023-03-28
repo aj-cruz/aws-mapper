@@ -26,6 +26,14 @@ parser.add_argument(
     help='AWS VPC ID (vpc-xxxxxxxxxx). This will return a list of all instances in the provided VPC'
     )
 parser.add_argument(
+    '--getinstancebyeip',
+    action='store',
+    dest='instbyeip',
+    default=None,
+    metavar="<elastic_ip_address>",
+    help='AWS Elastic IP Address. This will return the instance attached to the EIP'
+    )
+parser.add_argument(
     '--getsubnetbyname',
     action='store',
     dest='subname',
@@ -73,13 +81,18 @@ def get_name_from_tags(tags):
         name = ""
     return name
 
+def build_topology_file_list():
+    # Build a list of json files in the topologies directory
+    fp = pathlib.Path(topo_fp)
+    return [f.name for f in fp.iterdir() if f.is_file() and f.name.endswith(".json")]
+
 # FUNCTIONS
 def validate_args():
     if len(query) > 1:
         rprint("\n\n:x: [red]Multiple queries are not presently supported. Please re-run with a single query.\n\n")
         sys.exit(1)
 
-    if not list(query[0].keys())[0] == "locvpc" and not args.topology_file.endswith(".json"):
+    if not list(query[0].keys())[0] in ["locvpc", "instbyeip"] and not args.topology_file.endswith(".json"):
         rprint(f"\n\n:x: [red]File [blue]{args.topology_file} [red]does not appear to be a JSON file (extension not .json). The script requires a JSON file.\n\n")
         sys.exit(1)
 
@@ -156,9 +169,7 @@ def run_subnet_by_name_query():
         rprint(f"\n\n[red]Subnet '{query['value']}' not found in file: [blue]{args.topology_file}\n")
 
 def run_locate_vpc():
-    # Build a list of json files in the topologies directory
-    fp = pathlib.Path(topo_fp)
-    file_list = [f.name for f in fp.iterdir() if f.is_file() and f.name.endswith(".json")]
+    file_list = build_topology_file_list()
     
     for f in file_list:
         with open(topo_fp + f, "r") as f:
@@ -177,11 +188,28 @@ def run_locate_vpc():
                         rprint(f"[yellow]VPC Name: [white]{vpc_name}")
                         rprint(f"[yellow]File: [blue]{f.name}")
 
+def run_instance_by_eip():
+    file_list = build_topology_file_list()
+    
+    for f in file_list:
+        with open(topo_fp + f, "r") as f:
+            topology = json.load(f)
+        for k, v in topology.items():
+            if isinstance(v, dict) and "vpcs" in v.keys():
+                inst = [{
+                    "region": k,
+                    "vpc_id": vpc['VpcId'],
+                    "name": get_name_from_tags(inst['Tags']),
+                    "inst_id": inst['InstanceId']
+                } for vpc in v['vpcs'] for inst in vpc['ec2_instances'] for intf in inst['NetworkInterfaces'] if "Association" in intf.keys() and intf['Association']['PublicIp'] == query['value']]
+                if len(inst) > 0:
+                    jprint(data=inst)
+
 if __name__ == "__main__":
     validate_args()
     topo_fp = build_topology_file_path()
     query = [{"type":k,"value":v} for k, v in query[0].items()][0]
-    if not query['type'] == "locvpc":
+    if not query['type'] in ["locvpc", "instbyeip"]:
         topology = read_topology_from_json()
     
     if query['type'] == "subnet":
@@ -192,3 +220,5 @@ if __name__ == "__main__":
         run_instances_by_vpc_query()
     elif query['type'] == "locvpc":
         run_locate_vpc()
+    elif query['type'] == "instbyeip":
+        run_instance_by_eip()
