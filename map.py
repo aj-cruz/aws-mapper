@@ -1447,7 +1447,7 @@ def add_transit_gateway_routes_to_word_doc():
                     )
                     # Build the child table
                     child_model = deepcopy(word_table_models.tgw_routes_tbl)
-                    for rownum, route in enumerate(rt['Routes'], start=1):
+                    for rownum, route in enumerate(sorted(rt['Routes'], key = lambda d : d['Type']), start=1):
                         this_rows_cells = []
                         # Shade every other row for readability
                         if not (rownum % 2) == 0:
