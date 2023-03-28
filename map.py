@@ -1436,22 +1436,23 @@ def add_transit_gateway_routes_to_word_doc():
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, attributes in filtered_topology.items():
-        if not attributes['transit_gateway_routes']:
-            parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":"No Transit Gateway Routes present"}]}]})
-        else:
-            parent_model['table']['rows'].append(
-                {"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / RT: {route['TransitGatewayRouteTableName']} ({route['TransitGatewayRouteTableId']})"}]}
-            )
-            # Build the child table
-            child_model = deepcopy(word_table_models.tgw_routes_tbl)
-            for route in attributes['transit_gateway_routes']:
-                this_rows_cells = []
-                # Create the parent table row and cells
-                # inject the row of cells into the table model
-                child_model['table']['rows'].append({"cells":this_rows_cells})
-            # Add the child table to the parent table
-            parent_model['table']['rows'].append({"cells":[child_model]})
+    for region, attributes in topology.items():
+        if not region in non_region_topology_keys: # Ignore these dictionary keys, they are not a region
+            if not attributes['transit_gateway_routes']:
+                parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":"No Transit Gateway Routes present"}]}]})
+            else:
+                parent_model['table']['rows'].append(
+                    {"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / RT: {route['TransitGatewayRouteTableName']} ({route['TransitGatewayRouteTableId']})"}]}
+                )
+                # Build the child table
+                child_model = deepcopy(word_table_models.tgw_routes_tbl)
+                for route in attributes['transit_gateway_routes']:
+                    this_rows_cells = []
+                    # Create the parent table row and cells
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_tgw_routes}}", table)
