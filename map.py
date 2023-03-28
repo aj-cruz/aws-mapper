@@ -299,9 +299,9 @@ def add_transit_gateway_routes_to_topology():
        if not region in non_region_topology_keys: # Ignore these dictionary keys, they're not a region, all others are regions
             rprint(f"    [yellow]Interrogating Region {region} for Transit Gateway Routes...")
             ec2 = boto3.client('ec2',region_name=region,verify=False) 
+            tgw_routes = []
             try:
                 tgw_rts = [rt for rt in ec2.describe_transit_gateway_route_tables()['TransitGatewayRouteTables']]
-                tgw_routes = []
                 for rt in tgw_rts:
                     routes = [route for route in ec2.search_transit_gateway_routes(
                         TransitGatewayRouteTableId = rt['TransitGatewayRouteTableId'],
@@ -317,12 +317,12 @@ def add_transit_gateway_routes_to_topology():
                         "TransitGatewayRouteTableName": extract_name_from_aws_tags(rt['Tags']),
                         "Routes":routes
                     })
-                topology[region]['transit_gateway_routes'] = tgw_routes
             except botocore.exceptions.ClientError as e:
                 if "(UnauthorizedOperation)" in str(e):
                     rprint(f"[red]Unauthorized Operation reported while pulling Transit Gateway Route Tables from {region}. Skipping...")
                 else:
                     print(e)
+            topology[region]['transit_gateway_routes'] = tgw_routes
 
 # BUILD WORD TABLE FUNCTIONS
 def add_vpcs_to_word_doc():
