@@ -1443,13 +1443,12 @@ def add_transit_gateway_routes_to_word_doc():
             else:
                 for rt in attributes['transit_gateway_routes']:
                     parent_model['table']['rows'].append(
-                        {"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / RT: {rt['TransitGatewayRouteTableName']} ({rt['TransitGatewayRouteTableId']})"}]}
+                        {"cells":[{"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / RT: {rt['TransitGatewayRouteTableName']} ({rt['TransitGatewayRouteTableId']})"}]}]}
                     )
                     # Build the child table
                     child_model = deepcopy(word_table_models.tgw_routes_tbl)
                     for route in rt['Routes']:
                         this_rows_cells = []
-                        # Create the parent table row and cells
                         # inject the row of cells into the table model
                         child_model['table']['rows'].append({"cells":this_rows_cells})
                     # Add the child table to the parent table
