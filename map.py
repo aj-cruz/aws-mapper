@@ -1373,7 +1373,7 @@ def add_transit_gateways_to_word_doc():
                 child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":str(tgw['Options']['AmazonSideAsn'])})
                 child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing" if tgw['OwnerId'] == topology['account']['id'] else "redtext","text":tgw['OwnerId']})
                 # Populate child table model with spacer and attachment header
-                child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs":[{"style":"regularbold","text":"ATTACHMENTS"}]},{"merge":None},{"merge":None},{"merge":None}]})
+                child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs":[{"style":"regularbold","text":"ATTACHMENTS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                 child_model['table']['rows'].append(deepcopy(word_table_models.tgw_attachment_tbl_header))
                 # Populate child table with attachments
                 for rownum2, attch in enumerate(tgw['attachments'], start=1):
@@ -1397,13 +1397,14 @@ def add_transit_gateways_to_word_doc():
                         rt_id = ""
                     # Add data to row/cells
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch_name}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['TransitGatewayAttachmentId']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['ResourceType']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['ResourceId']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt_id}]})
                     # add attachment data row to child table model
                     child_model['table']['rows'].append({"cells":this_rows_cells})
                 # Populate child table model with spacer and route table header
-                child_model['table']['rows'].append({"cells":[{"background":red_spacer,"paragraphs":[{"style":"regularbold","text":"ROUTE TABLES"}]},{"merge":None},{"merge":None},{"merge":None}]})
+                child_model['table']['rows'].append({"cells":[{"background":red_spacer,"paragraphs":[{"style":"regularbold","text":"ROUTE TABLES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                 child_model['table']['rows'].append(deepcopy(word_table_models.tgw_rt_tbl_header))
                 for rownum2, rt in enumerate(tgw['route_tables'], start=1):
                     this_rows_cells = []
@@ -1421,6 +1422,7 @@ def add_transit_gateways_to_word_doc():
                         # Object has no name
                         rt_name = "<unnamed>"
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt_name}]})
+                    this_rows_cells.append({"merge":None})
                     this_rows_cells.append({"merge":None})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt['TransitGatewayRouteTableId']}]})
                     this_rows_cells.append({"merge":None})
@@ -1455,13 +1457,23 @@ def add_transit_gateway_routes_to_word_doc():
                         else:
                             row_color = None
                         try: # Get Resource Type
-                            route_type = route['TransitGatewayAttachments'][0]['ResourceType']
+                            resource_type = route['TransitGatewayAttachments'][0]['ResourceType']
                         except KeyError:
-                            route_type = "-"
+                            resource_type = "-"
+                        try: # Get Resource ID
+                            resource_id = route['TransitGatewayAttachments'][0]['ResourceId']
+                        except KeyError:
+                            resource_id = "-"
+                        try: # Get Attachment ID
+                            attachment_id = route['TransitGatewayAttachments'][0]['TransitGatewayAttachmentId']
+                        except KeyError:
+                            attachment_id = "-"
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['DestinationCidrBlock']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":resource_type}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":resource_id}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attachment_id}]})
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Type']}]})
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route_type}]})
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Type']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['State']}]})
                         # inject the row of cells into the table model
                         child_model['table']['rows'].append({"cells":this_rows_cells})
                     # Add the child table to the parent table

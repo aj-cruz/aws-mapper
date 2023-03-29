@@ -565,6 +565,9 @@ tgw_tbl = {
                     },
                     {
                         "paragraphs": []
+                    },
+                    {
+                        "merge": None
                     }
                 ]
             },
@@ -583,6 +586,9 @@ tgw_tbl = {
                     },
                     {
                         "paragraphs": []
+                    },
+                    {
+                        "merge": None
                     }
                 ]
             }
@@ -595,6 +601,10 @@ tgw_attachment_tbl_header = {
         {
             "background": table_header_color,
             "paragraphs": [{"style": "regularbold", "text": "ATTACHMENT NAME"}]
+        },
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "ATTACHMENT ID"}]
         },
         {
             "background": table_header_color,
@@ -616,6 +626,9 @@ tgw_rt_tbl_header = {
         {
             "background": table_header_color,
             "paragraphs": [{"style": "regularbold", "text": "ROUTE TABLE NAME"}]
+        },
+        {
+            "merge": None
         },
         {
             "merge": None
@@ -643,6 +656,14 @@ tgw_routes_tbl = {
                     {
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "RESOURCE TYPE"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "RESOURCE ID"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ATTACHMENT ID"}]
                     },
                     {
                         "background": table_header_color,
