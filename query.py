@@ -184,7 +184,7 @@ def run_locate_vpc():
                             vpc_name = ""
                         except IndexError:
                             vpc_name = ""
-                        rprint(f"\n[yellow]{query['value']} found in Account: [white] {topology['account_id']}")
+                        rprint(f"\n[yellow]{query['value']} found in Account: [white] {topology['account']['id']}")
                         rprint(f"[yellow]VPC Name: [white]{vpc_name}")
                         rprint(f"[yellow]File: [blue]{f.name}")
 
