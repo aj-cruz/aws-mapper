@@ -200,6 +200,7 @@ def add_network_elements_to_vpcs():
     for k, v in topology.items():
         if not k in non_region_topology_keys: # Ignore these keys, all the rest are regions
             ec2 = boto3.client('ec2',region_name=k,verify=False)
+            elb = boto3.client('elbv2',region_name=k,verify=False)
             for vpc in v['vpcs']:
                 rprint(f"    [yellow]Discovering network elements (subnets, route tables, etc.) for {k}/{vpc['VpcId']}...")
                 subnets = [subnet for subnet in ec2.describe_subnets()['Subnets'] if subnet['VpcId'] == vpc['VpcId']]
@@ -227,7 +228,7 @@ def add_network_elements_to_vpcs():
                 vpc['ec2_instances'] = ec2_instances
                 vpc['ec2_groups'] = ec2_groups
                 vpc['endpoints'] = [ep for ep in ec2.describe_vpc_endpoints()['VpcEndpoints'] if ep['VpcId'] == vpc['VpcId']]
-                vpc['load_balancers'] = [lb for lb in ec2.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
+                vpc['load_balancers'] = [lb for lb in elb.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
 
 def add_prefix_lists_to_topology():
     for region in topology:
