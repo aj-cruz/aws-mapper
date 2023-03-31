@@ -230,7 +230,7 @@ def add_network_elements_to_vpcs():
                 vpc['endpoints'] = [ep for ep in ec2.describe_vpc_endpoints()['VpcEndpoints'] if ep['VpcId'] == vpc['VpcId']]
                 vpc['load_balancers'] = [lb for lb in elb.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
                 for lb in vpc['load_balancers']:
-                    lb['Listeners'] = [listener for listener in elb.describe_listeners()['Listeners'] if listener['LoadBalancerArn'] == lb['LoadBalancerArn']]
+                    lb['Listeners'] = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])['Listeners']
 
 def add_prefix_lists_to_topology():
     for region in topology:
