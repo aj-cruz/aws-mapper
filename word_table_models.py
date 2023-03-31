@@ -1,4 +1,4 @@
-from map import table_header_color, orange_spacer
+from map import table_header_color, orange_spacer, green_spacer, red_spacer
 
 parent_tbl = {
 		"table": {
@@ -1196,4 +1196,88 @@ dcgw_vif_header = {
             "paragraphs": [{"style": "regularbold", "text": "BGP PEER:STATUS"}]
         },
     ]
+}
+
+load_balancer_tbl = {
+    "table": {
+        "style": "plain",
+        "rows": [
+            {
+                "cells": [
+                    {
+                        "background": orange_spacer,
+                        "paragraphs": [{"style": "regularbold", "text": "LOAD BALANCER"}]
+                    },
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "NAME"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "TYPE"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "STATE"}]
+                    },
+                    {
+                        "paragraphs": []
+                    }
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": green_spacer,
+                        "paragraphs": [{"style": "regularbold", "text": "NETWORK MAPPINGS"}]
+                    },
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "AVAILABILITY ZONE"}]
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "SUBNET"}]
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ADDRESSES"}]
+                    },
+                    {
+                        "merge": None
+                    }
+                ]
+            }
+        ]
+    }
 }

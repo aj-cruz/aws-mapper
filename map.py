@@ -229,6 +229,8 @@ def add_network_elements_to_vpcs():
                 vpc['ec2_groups'] = ec2_groups
                 vpc['endpoints'] = [ep for ep in ec2.describe_vpc_endpoints()['VpcEndpoints'] if ep['VpcId'] == vpc['VpcId']]
                 vpc['load_balancers'] = [lb for lb in elb.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
+                for lb in vpc['load_balancers']:
+                    lb['Listeners'] = [listener for listener in elb.describe_listeners()['Listeners'] if listener['LoadBalancerArn'] == lb['LoadBalancerArn']]
 
 def add_prefix_lists_to_topology():
     for region in topology:
@@ -1814,6 +1816,63 @@ def add_direct_connect_gateways_to_word_doc():
     table = build_table(doc_obj, model)
     replace_placeholder_with_table(doc_obj, "{{py_dcgws}}", table)
 
+def add_load_balancers_to_word_doc():
+    # Create the parent table model
+    parent_model = deepcopy(word_table_models.parent_tbl)
+    # Populate the table model with data
+    for region, vpcs in filtered_topology.items():
+        if not vpcs:
+            pass
+        else:
+            for vpc in vpcs:
+                this_parent_tbl_rows_cells = []
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
+                except KeyError:
+                    # Object has no name
+                    vpc_name = ""
+                except IndexError:
+                    vpc_name == ""
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
+                # inject the row of cells into the table model
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                if not vpc['load_balancers']:
+                    parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Load Balancers Present"}]}]})
+                else:
+                    for rownum, lb in enumerate(sorted(vpc['load_balancers'], key = lambda d : d['Type']), start=1):
+                        # Build the child table
+                        child_model = deepcopy(word_table_models.load_balancer_tbl)
+                        if rownum > 1: # Inject a space between load balancer tables
+                            parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":""}]}]})
+                        child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":lb['LoadBalancerName']})
+                        child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":lb['Type']})
+                        child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":lb['State']['Code']})
+                        # Populate Network Mappings
+                        for rownum2, az in enumerate(lb['AvailabilityZones'], start=1):
+                            this_rows_cells = []
+                            # Shade every other row for readability
+                            if not (rownum2 % 2) == 0:
+                                row_color = alternating_row_color
+                            else:
+                                row_color = None
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":az['ZoneName']}]})
+                            this_rows_cells.append({"merge":None})
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":az['SubnetId']}]})
+                            this_rows_cells.append({"merge":None})
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":az['LoadBalancerAddresses']}]})
+                            this_rows_cells.append({"merge":None})
+                            # inject the row of cells into the table model
+                            child_model['table']['rows'].append({"cells":this_rows_cells})
+                        # Add the child table to the parent table
+                        parent_model['table']['rows'].append({"cells":[child_model]})
+    # Model has been build, now convert it to a python-docx Word table object
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_load_balancers}}", table)
+
 def add_instances_to_word_doc():
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
@@ -2006,8 +2065,10 @@ if __name__ == "__main__":
         add_vpn_gateways_to_word_doc()
         rprint("[yellow]    Creating Direct Connect Gateways table...")
         add_direct_connect_gateways_to_word_doc()
-        rprint("[yellow]    Creating EC2 Instances table...")
-        add_instances_to_word_doc()
+        rprint("[yellow]    Creating Load Balancers table...")
+        add_load_balancers_to_word_doc()
+        # rprint("[yellow]    Creating EC2 Instances table...")
+        # add_instances_to_word_doc()
 
         rprint("\n\n[yellow]STEP 11/11: WRITING ARTIFACTS TO FILE SYSTEM")
         rprint("    [yellow]Saving Word document...")
