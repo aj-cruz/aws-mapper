@@ -2,7 +2,7 @@ import boto3, botocore.exceptions, requests, sys, datetime, json, os, argparse, 
 from rich import print as rprint
 from rich import print_json as jprint
 from docx import Document
-from dcnet_msofficetools.docx_extensions import build_table, replace_placeholder_with_table, replace_placeholder_with_text, find_in_paragraph
+from dcnet_msofficetools.docx_extensions import build_table, replace_placeholder_with_table
 from copy import deepcopy
 import word_table_models, word_title_page
 from urllib3.exceptions import InsecureRequestWarning
@@ -227,7 +227,7 @@ def add_network_elements_to_vpcs():
                 vpc['ec2_instances'] = ec2_instances
                 vpc['ec2_groups'] = ec2_groups
                 vpc['endpoints'] = [ep for ep in ec2.describe_vpc_endpoints()['VpcEndpoints'] if ep['VpcId'] == vpc['VpcId']]
-                vpc['load_balancers'] = [lb for lb in ec2.describe_load_balancers()['LoadBalancers'] if ep['VpcId'] == vpc['VpcId']]
+                vpc['load_balancers'] = [lb for lb in ec2.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
 
 def add_prefix_lists_to_topology():
     for region in topology:
