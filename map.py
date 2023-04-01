@@ -231,7 +231,7 @@ def add_network_elements_to_vpcs():
                 vpc['load_balancers'] = [lb for lb in elb.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
                 for lb in vpc['load_balancers']:
                     lb['Listeners'] = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])['Listeners']
-                vpc['lb_target_groups'] = elb.describe_target_groups()['TargetGroups']
+                vpc['lb_target_groups'] = [tg for tg in elb.describe_target_groups()['TargetGroups'] if tg['VpcId'] == vpc['VpcId']]
 
 def add_prefix_lists_to_topology():
     for region in topology:
