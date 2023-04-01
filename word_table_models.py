@@ -1307,3 +1307,138 @@ load_balancer_listener_header = {
         },
     ]
 }
+
+lb_target_group_tbl = {
+    "table": {
+        "style": "plain",
+        "rows": [
+            {
+                "cells": [
+                    {
+                        "background": orange_spacer,
+                        "paragraphs": []
+                    },
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "NAME"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "PROTOCOL:PORT"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "TARGET TYPE"}]
+                    },
+                    {
+                        "paragraphs": []
+                    }
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "LOAD BALANCER ARNS"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    }
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "HEALTH CHECK PROTOCOL"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "HEALTH CHECK PORT"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "HEALTHY THRESHOLD"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "UNHEALTHY THRESHOLD"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "TIMEOUT"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "INTERVAL"}]
+                    },
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": green_spacer,
+                        "paragraphs": [{"style": "regularbold", "text": "NETWORK MAPPINGS"}]
+                    },
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                    {"merge": None},
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "AVAILABILITY ZONE"}]
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "SUBNET"}]
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ADDRESSES"}]
+                    },
+                    {
+                        "merge": None
+                    }
+                ]
+            }
+        ]
+    }
+}
