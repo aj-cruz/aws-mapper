@@ -231,7 +231,7 @@ def add_network_elements_to_vpcs():
                 vpc['load_balancers'] = [lb for lb in elb.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
                 for lb in vpc['load_balancers']:
                     lb['Listeners'] = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])['Listeners']
-                    lb['TargetGroups'] = elb.describe_target_groups(LoadBalancerArn=lb['LoadBalancerArn'])['TargetGroups']
+                vpc['lb_target_groups'] = elb.describe_target_groups()['TargetGroups']
 
 def add_prefix_lists_to_topology():
     for region in topology:
@@ -1883,7 +1883,7 @@ def add_load_balancers_to_word_doc():
                             if len(listener['DefaultActions'][0]['ForwardConfig']['TargetGroups']) > 1:
                                 rprint("    [orange]WARNING: Multiple Target Groups detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
                             # Derive Target Group from ARN
-                            tg_name = listener['DefaultActions'][0]['TargetGroupArn'].split("/")[1].replace("-UDP","").replace("-TCP","")
+                            tg_name = listener['DefaultActions'][0]['TargetGroupArn'].split("/")[1]
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":f"{listener['Protocol']}:{listener['Port']}"}]})
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tg_name}]})
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":listener['ListenerArn']}]})
