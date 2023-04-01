@@ -231,6 +231,7 @@ def add_network_elements_to_vpcs():
                 vpc['load_balancers'] = [lb for lb in elb.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
                 for lb in vpc['load_balancers']:
                     lb['Listeners'] = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])['Listeners']
+                    lb['TargetGroups'] = elb.describe_target_groups(LoadBalancerArn=lb['LoadBalancerArn'])['TargetGroups']
 
 def add_prefix_lists_to_topology():
     for region in topology:
@@ -1845,6 +1846,7 @@ def add_load_balancers_to_word_doc():
                         child_model = deepcopy(word_table_models.load_balancer_tbl)
                         if rownum > 1: # Inject a space between load balancer tables
                             parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":""}]}]})
+                        child_model['table']['rows'][0]['cells'][0]['paragraphs'].append({"style": "regularbold", "text": f"LOAD BALANCER ARN: {lb['LoadBalancerArn']}"})
                         child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":lb['LoadBalancerName']})
                         child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":lb['Type']})
                         child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":lb['State']['Code']})
@@ -1856,11 +1858,37 @@ def add_load_balancers_to_word_doc():
                                 row_color = alternating_row_color
                             else:
                                 row_color = None
+                            lb_addresses = "<none>" if not az['LoadBalancerAddresses'] else az['LoadBalancerAddresses']
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":az['ZoneName']}]})
                             this_rows_cells.append({"merge":None})
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":az['SubnetId']}]})
                             this_rows_cells.append({"merge":None})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":az['LoadBalancerAddresses']}]})
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":lb_addresses}]})
+                            this_rows_cells.append({"merge":None})
+                            # inject the row of cells into the table model
+                            child_model['table']['rows'].append({"cells":this_rows_cells})
+                        # Insert Listener Spacer, listener header, and populate Listeners
+                        child_model['table']['rows'].append({"cells":[{"background":red_spacer,"paragraphs": [{"style": "regularbold", "text": "LISTENERS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                        child_model['table']['rows'].append(deepcopy(word_table_models.load_balancer_listener_header))
+                        for rownum2, listener in enumerate(lb['Listeners'], start=1):
+                            this_rows_cells = []
+                            # Shade every other row for readability
+                            if not (rownum2 % 2) == 0:
+                                row_color = alternating_row_color
+                            else:
+                                row_color = None
+                            # Warn if more than 1 default action or target group
+                            if len(listener['DefaultActions']) > 1:
+                                rprint("    [orange]WARNING: Multiple Default Actions detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
+                            if len(listener['DefaultActions'][0]['ForwardConfig']['TargetGroups']) > 1:
+                                rprint("    [orange]WARNING: Multiple Target Groups detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
+                            # Derive Target Group from ARN
+                            tg_name = listener['DefaultActions'][0]['TargetGroupArn'].split("/")[1].replace("-UDP","").replace("-TCP","")
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":f"{listener['Protocol']}:{listener['Port']}"}]})
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tg_name}]})
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":listener['ListenerArn']}]})
+                            this_rows_cells.append({"merge":None})
+                            this_rows_cells.append({"merge":None})
                             this_rows_cells.append({"merge":None})
                             # inject the row of cells into the table model
                             child_model['table']['rows'].append({"cells":this_rows_cells})

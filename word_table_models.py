@@ -1206,7 +1206,7 @@ load_balancer_tbl = {
                 "cells": [
                     {
                         "background": orange_spacer,
-                        "paragraphs": [{"style": "regularbold", "text": "LOAD BALANCER"}]
+                        "paragraphs": []
                     },
                     {"merge": None},
                     {"merge": None},
@@ -1280,4 +1280,30 @@ load_balancer_tbl = {
             }
         ]
     }
+}
+
+load_balancer_listener_header = {
+    "cells": [
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "PROTOCOL:PORT"}]
+        },
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "FORWARD GROUP"}]
+        },
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "LISTENER ARN"}]
+        },
+        {
+            "merge": None
+        },
+        {
+            "merge": None
+        },
+        {
+            "merge": None
+        },
+    ]
 }
