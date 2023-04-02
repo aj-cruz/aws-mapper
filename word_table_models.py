@@ -471,6 +471,14 @@ endpoint_tbl = {
                     },
                     {
                         "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ENI"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "SUBNETS"}]
+                    },
+                    {
+                        "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "SVC NAME"}]
                     }
                 ]

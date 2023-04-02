@@ -1296,6 +1296,8 @@ def add_endpoints_to_word_doc():
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep_name}]})
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['VpcEndpointId']}]})
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['VpcEndpointType']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['NetworkInterfaceIds']}]})
+                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['SubnetIds']}]})
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['ServiceName']}]})
                         # inject the row of cells into the table model
                         child_model['table']['rows'].append({"cells":this_rows_cells})
