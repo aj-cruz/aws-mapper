@@ -1932,8 +1932,11 @@ def add_load_balancers_to_word_doc():
                             # Warn if more than 1 default action or target group
                             if len(listener['DefaultActions']) > 1:
                                 rprint("    [orange]WARNING: Multiple Default Actions detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
-                            if len(listener['DefaultActions'][0]['ForwardConfig']['TargetGroups']) > 1:
-                                rprint("    [orange]WARNING: Multiple Target Groups detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
+                            try:
+                                if len(listener['DefaultActions'][0]['ForwardConfig']['TargetGroups']) > 1:
+                                    rprint("    [orange]WARNING: Multiple Target Groups detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
+                            except:
+                                pass
                             # Derive Target Group from ARN
                             tg_name = listener['DefaultActions'][0]['TargetGroupArn'].split("/")[1]
                             try: # Get Protocol (Gateway Load Balancers don't have a default protocol and port in the listener, so if none exists we look into the target group)
