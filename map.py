@@ -1932,13 +1932,8 @@ def add_load_balancers_to_word_doc():
                             # Warn if more than 1 default action or target group
                             if len(listener['DefaultActions']) > 1:
                                 rprint("    [orange]WARNING: Multiple Default Actions detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
-                            try:
-                                if len(listener['DefaultActions'][0]['ForwardConfig']['TargetGroups']) > 1:
-                                    rprint("    [orange]WARNING: Multiple Target Groups detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
-                            except:
-                                pass
                             try: # Derive Target Group from ARN
-                                tg_name = listener['DefaultActions'][0]['TargetGroupArn'].split("/")[1]
+                                tg_names = [f"{tg['TargetGroupArn'].split('/')[1]}(weight:{tg['Weight']})" for tg in listener['DefaultActions'][0]['ForwardConfig']['TargetGroups']]
                             except KeyError:
                                 tg_name = "---"
                             try: # Get Protocol (Gateway Load Balancers don't have a default protocol and port in the listener, so if none exists we look into the target group)
@@ -1952,7 +1947,7 @@ def add_load_balancers_to_word_doc():
                                 tg = [tg for tg in vpc['lb_target_groups'] if tg['TargetGroupArn'] == listener['DefaultActions'][0]['TargetGroupArn']][0]
                                 listener_port = tg['Port']
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":f"{listener_protocol}:{listener_port}"}]})
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tg_name}]})
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tg_names}]})
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":listener['ListenerArn']}]})
                             this_rows_cells.append({"merge":None})
                             this_rows_cells.append({"merge":None})
