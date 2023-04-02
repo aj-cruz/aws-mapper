@@ -1862,7 +1862,10 @@ def add_load_balancers_to_word_doc():
                                 row_color = alternating_row_color
                             else:
                                 row_color = None
-                            lb_addresses = "<none>" if not az['LoadBalancerAddresses'] else az['LoadBalancerAddresses']
+                            try: # Get Load Balancer Addresses
+                                lb_addresses = "<none>" if not az['LoadBalancerAddresses'] else az['LoadBalancerAddresses']
+                            except KeyError:
+                                lb_addresses = "<none>"
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":az['ZoneName']}]})
                             this_rows_cells.append({"merge":None})
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":az['SubnetId']}]})
