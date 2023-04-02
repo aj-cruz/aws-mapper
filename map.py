@@ -206,6 +206,7 @@ def add_network_elements_to_vpcs():
         if not k in non_region_topology_keys: # Ignore these keys, all the rest are regions
             ec2 = boto3.client('ec2',region_name=k,verify=False)
             elb = boto3.client('elbv2',region_name=k,verify=False)
+            k["non_vpc_lb_target_groups"] = [tg for tg in elb.describe_target_groups()['TargetGroups'] if not "VpcId" in tg.keys()]
             for vpc in v['vpcs']:
                 rprint(f"    [yellow]Discovering network elements (subnets, route tables, etc.) for {k}/{vpc['VpcId']}...")
                 subnets = [subnet for subnet in ec2.describe_subnets()['Subnets'] if subnet['VpcId'] == vpc['VpcId']]
@@ -237,7 +238,7 @@ def add_network_elements_to_vpcs():
                 for lb in vpc['load_balancers']:
                     lb['Listeners'] = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])['Listeners']
                 jprint(data=elb.describe_target_groups()['TargetGroups'])
-                vpc['lb_target_groups'] = [tg for tg in elb.describe_target_groups()['TargetGroups'] if tg['VpcId'] == vpc['VpcId']]
+                vpc['lb_target_groups'] = [tg for tg in elb.describe_target_groups()['TargetGroups'] if "VpcId" in tg.keys() and tg['VpcId'] == vpc['VpcId']]
                 for tg in vpc['lb_target_groups']:
                     tg['HealthChecks'] = elb.describe_target_health(TargetGroupArn=tg['TargetGroupArn'])['TargetHealthDescriptions']
 
