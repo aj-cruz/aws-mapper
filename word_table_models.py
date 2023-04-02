@@ -1119,7 +1119,7 @@ ec2_inst_interface_tbl_header = {
         },
         {
             "background": table_header_color,
-            "paragraphs": [{"style": "regularbold", "text": "SUB ID"}]
+            "paragraphs": [{"style": "regularbold", "text": "SUBNET"}]
         },
         {
             "background": table_header_color,
