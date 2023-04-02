@@ -1937,8 +1937,10 @@ def add_load_balancers_to_word_doc():
                                     rprint("    [orange]WARNING: Multiple Target Groups detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
                             except:
                                 pass
-                            # Derive Target Group from ARN
-                            tg_name = listener['DefaultActions'][0]['TargetGroupArn'].split("/")[1]
+                            try: # Derive Target Group from ARN
+                                tg_name = listener['DefaultActions'][0]['TargetGroupArn'].split("/")[1]
+                            except KeyError:
+                                tg_name = "---"
                             try: # Get Protocol (Gateway Load Balancers don't have a default protocol and port in the listener, so if none exists we look into the target group)
                                 listener_protocol = listener['Protocol']
                             except KeyError:
