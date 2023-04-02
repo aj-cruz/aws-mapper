@@ -236,6 +236,7 @@ def add_network_elements_to_vpcs():
                 vpc['load_balancers'] = [lb for lb in elb.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
                 for lb in vpc['load_balancers']:
                     lb['Listeners'] = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])['Listeners']
+                jprint(data=elb.describe_target_groups()['TargetGroups'])
                 vpc['lb_target_groups'] = [tg for tg in elb.describe_target_groups()['TargetGroups'] if tg['VpcId'] == vpc['VpcId']]
                 for tg in vpc['lb_target_groups']:
                     tg['HealthChecks'] = elb.describe_target_health(TargetGroupArn=tg['TargetGroupArn'])['TargetHealthDescriptions']
