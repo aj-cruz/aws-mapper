@@ -487,6 +487,38 @@ endpoint_tbl = {
     }
 }
 
+endpoint_services_tbl = {
+    "table": {
+        "style": "plain",
+        "rows": [
+            {
+                "cells": [
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "NAME"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ID"}]
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                ]
+            }
+        ]
+    }
+}
+
 vpc_peering_requester_tbl = {
     "table": {
         "style": "plain",

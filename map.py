@@ -272,7 +272,7 @@ def add_endpoint_services_to_topology():
             rprint(f"    [yellow]Interrogating Region {region} for Endpoint Services...")
             ec2 = boto3.client('ec2',region_name=region,verify=False)
             try:
-                v['endpoint_services'] = [svc for svc in ec2.describe_vpc_endpoint_servicess()['ServiceNames']]
+                v['endpoint_services'] = [svc for svc in ec2.describe_vpc_endpoint_services()['ServiceNames']]
             except botocore.exceptions.ClientError:
                 rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
 
