@@ -1935,7 +1935,7 @@ def add_load_balancers_to_word_doc():
                             try: # Derive Target Group from ARN
                                 tg_names = [f"{tg['TargetGroupArn'].split('/')[1]}(weight:{tg['Weight']})" for tg in listener['DefaultActions'][0]['ForwardConfig']['TargetGroups']]
                             except KeyError:
-                                tg_name = "---"
+                                tg_names = "---"
                             try: # Get Protocol (Gateway Load Balancers don't have a default protocol and port in the listener, so if none exists we look into the target group)
                                 listener_protocol = listener['Protocol']
                             except KeyError:
