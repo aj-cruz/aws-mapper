@@ -1903,6 +1903,73 @@ def add_load_balancers_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_load_balancers}}", table)
 
+def add_load_balancer_targets_to_word_doc():
+    # Create the parent table model
+    parent_model = deepcopy(word_table_models.parent_tbl)
+    # Populate the table model with data
+    for region, vpcs in filtered_topology.items():
+        if not vpcs:
+            pass
+        else:
+            for vpc in vpcs:
+                this_parent_tbl_rows_cells = []
+                try:
+                    vpc_name = [tag['Value'] for tag in vpc['Tags'] if tag['Key'] == "Name"][0]
+                except KeyError:
+                    # Object has no name
+                    vpc_name = ""
+                except IndexError:
+                    vpc_name == ""
+                # Create the parent table row and cells
+                this_parent_tbl_rows_cells.append({"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / VPC: {vpc_name}"}]})
+                # inject the row of cells into the table model
+                parent_model['table']['rows'].append({"cells":this_parent_tbl_rows_cells})
+                if not vpc['lb_target_groups']:
+                    parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":"No Target Groups Present"}]}]})
+                else:
+                    for rownum, tg in enumerate(sorted(vpc['lb_target_groups'], key=lambda d : d['TargetType']), start=1):
+                        if rownum > 1: # Inject space between Target Group tables
+                            parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":""}]}]})
+                        # Build the child table
+                        child_model = deepcopy(word_table_models.lb_target_group_tbl)
+                        child_model['table']['rows'][0]['cells'][0]['paragraphs'].append({"style":"regularbold","text":f"TARGET GROUP ARN: {tg['TargetGroupArn']}"})
+                        child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":tg['TargetGroupName']})
+                        child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":f"{tg['Protocol']}:{tg['Port']}"})
+                        child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":tg['TargetType']})
+                        child_model['table']['rows'][2]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":tg['LoadBalancerArns']})
+                        child_model['table']['rows'][4]['cells'][0]['paragraphs'].append({"style":"No Spacing","text":tg['HealthCheckProtocol']})
+                        child_model['table']['rows'][4]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":str(tg['Port'])})
+                        child_model['table']['rows'][4]['cells'][2]['paragraphs'].append({"style":"No Spacing","text":str(tg['HealthyThresholdCount'])})
+                        child_model['table']['rows'][4]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":str(tg['UnhealthyThresholdCount'])})
+                        child_model['table']['rows'][4]['cells'][4]['paragraphs'].append({"style":"No Spacing","text":str(tg['HealthCheckTimeoutSeconds'])})
+                        child_model['table']['rows'][4]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":str(tg['HealthCheckIntervalSeconds'])})
+                        for rownum2, target in enumerate(tg['HealthChecks'], start=1):
+                            this_rows_cells = []
+                            # Shade every other row for readability
+                            if not (rownum2 % 2) == 0:
+                                row_color = alternating_row_color
+                            else:
+                                row_color = None
+                            # Build word table rows & cells
+                            health_reason = "---" if target['TargetHealth']['State'] == "healthy" else target['TargetHealth']['Reason']
+                            health_description = "---" if target['TargetHealth']['State'] == "healthy" else target['TargetHealth']['Description']
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":target['Target']['Id']}]})
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(target['Target']['Port'])}]})
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":target['TargetHealth']['State']}]})
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":health_reason}]})
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":health_description}]})
+                            this_rows_cells.append({"merge":None})
+                            # inject the row of cells into the table model
+                            child_model['table']['rows'].append({"cells":this_rows_cells})
+                        # Add the child table to the parent table
+                        parent_model['table']['rows'].append({"cells":[child_model]})
+    # Model has been build, now convert it to a python-docx Word table object
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_lb_target_groups}}", table)
+
 def add_instances_to_word_doc():
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
@@ -2097,8 +2164,10 @@ if __name__ == "__main__":
         add_direct_connect_gateways_to_word_doc()
         rprint("[yellow]    Creating Load Balancers table...")
         add_load_balancers_to_word_doc()
-        # rprint("[yellow]    Creating EC2 Instances table...")
-        # add_instances_to_word_doc()
+        rprint("[yellow]    Creating Load Balancer Target Groups table...")
+        add_load_balancer_targets_to_word_doc()
+        rprint("[yellow]    Creating EC2 Instances table...")
+        add_instances_to_word_doc()
 
         rprint("\n\n[yellow]STEP 11/11: WRITING ARTIFACTS TO FILE SYSTEM")
         rprint("    [yellow]Saving Word document...")

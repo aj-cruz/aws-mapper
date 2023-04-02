@@ -1393,11 +1393,33 @@ lb_target_group_tbl = {
                     },
                     {
                         "background": table_header_color,
-                        "paragraphs": [{"style": "regularbold", "text": "TIMEOUT"}]
+                        "paragraphs": [{"style": "regularbold", "text": "TIMEOUT SECONDS"}]
                     },
                     {
                         "background": table_header_color,
-                        "paragraphs": [{"style": "regularbold", "text": "INTERVAL"}]
+                        "paragraphs": [{"style": "regularbold", "text": "INTERVAL SECONDS"}]
+                    },
+                ]
+            },
+            {
+                "cells": [
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "paragraphs": []
+                    },
+                    {
+                        "paragraphs": []
                     },
                 ]
             },
@@ -1405,7 +1427,7 @@ lb_target_group_tbl = {
                 "cells": [
                     {
                         "background": green_spacer,
-                        "paragraphs": [{"style": "regularbold", "text": "NETWORK MAPPINGS"}]
+                        "paragraphs": [{"style": "regularbold", "text": "TARGETS AND TARGET HEALTH"}]
                     },
                     {"merge": None},
                     {"merge": None},
@@ -1418,21 +1440,23 @@ lb_target_group_tbl = {
                 "cells": [
                     {
                         "background": table_header_color,
-                        "paragraphs": [{"style": "regularbold", "text": "AVAILABILITY ZONE"}]
-                    },
-                    {
-                        "merge": None
+                        "paragraphs": [{"style": "regularbold", "text": "TARGET ID"}]
                     },
                     {
                         "background": table_header_color,
-                        "paragraphs": [{"style": "regularbold", "text": "SUBNET"}]
-                    },
-                    {
-                        "merge": None
+                        "paragraphs": [{"style": "regularbold", "text": "TARGET PORT"}]
                     },
                     {
                         "background": table_header_color,
-                        "paragraphs": [{"style": "regularbold", "text": "ADDRESSES"}]
+                        "paragraphs": [{"style": "regularbold", "text": "STATE"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "REASON"}]
+                    },
+                    {
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "DESCRIPTION"}]
                     },
                     {
                         "merge": None
