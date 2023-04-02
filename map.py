@@ -196,6 +196,8 @@ def add_vpcs_to_topology():
             try:
                 response = ec2.describe_vpcs()['Vpcs']
                 topology[region]["non_vpc_lb_target_groups"] = [tg for tg in elb.describe_target_groups()['TargetGroups'] if not "VpcId" in tg.keys()]
+                for tg in topology[region]["non_vpc_lb_target_groups"]:
+                    tg['HealthChecks'] = elb.describe_target_health(TargetGroupArn=tg['TargetGroupArn'])['TargetHealthDescriptions']
                 for vpc in response:
                     is_empty_default_vpc = fingerprint_vpc(region, vpc, ec2)
                     if not is_empty_default_vpc:
@@ -1968,6 +1970,46 @@ def add_load_balancers_to_word_doc():
 def add_load_balancer_targets_to_word_doc():
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
+    # First populate non-vpc Load Balancer Targers
+    for region, attributes in topology.items():
+        if not region in non_region_topology_keys and "non_vpc_lb_target_groups" in attributes.keys() and attributes['non_vpc_lb_target_groups']:
+            parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"Heading 2","text":f"Region {region} (Non VPC Targets)"}]}]})
+            for rownum, tg in enumerate(sorted(attributes['non_vpc_lb_target_groups'], key=lambda d : d['TargetType']), start=1):
+                if rownum > 1: # Inject space between Target Group tables
+                    parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"No Spacing","text":""}]}]})
+                # Build the child table
+                child_model = deepcopy(word_table_models.lb_target_group_tbl)
+                child_model['table']['rows'][0]['cells'][0]['paragraphs'].append({"style":"regularbold","text":f"TARGET GROUP ARN: {tg['TargetGroupArn']}"})
+                child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":tg['TargetGroupName']})
+                child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":"<NA>"})
+                child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":tg['TargetType']})
+                child_model['table']['rows'][2]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":tg['LoadBalancerArns']})
+                child_model['table']['rows'][4]['cells'][0]['paragraphs'].append({"style":"No Spacing","text":"<NA>"})
+                child_model['table']['rows'][4]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":"<NA>"})
+                child_model['table']['rows'][4]['cells'][2]['paragraphs'].append({"style":"No Spacing","text":str(tg['HealthyThresholdCount'])})
+                child_model['table']['rows'][4]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":str(tg['UnhealthyThresholdCount'])})
+                child_model['table']['rows'][4]['cells'][4]['paragraphs'].append({"style":"No Spacing","text":str(tg['HealthCheckTimeoutSeconds'])})
+                child_model['table']['rows'][4]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":str(tg['HealthCheckIntervalSeconds'])})
+                for rownum2, target in enumerate(tg['HealthChecks'], start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum2 % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    # Build word table rows & cells
+                    health_reason = "---" if target['TargetHealth']['State'] == "healthy" else target['TargetHealth']['Reason']
+                    health_description = "---" if target['TargetHealth']['State'] == "healthy" else target['TargetHealth']['Description']
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":target['Target']['Id']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(target['Target']['Port'])}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":target['TargetHealth']['State']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":health_reason}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":health_description}]})
+                    this_rows_cells.append({"merge":None})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
     # Populate the table model with data
     for region, vpcs in filtered_topology.items():
         if not vpcs:
