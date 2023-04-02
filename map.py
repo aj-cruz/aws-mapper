@@ -2001,7 +2001,7 @@ def add_load_balancer_targets_to_word_doc():
                     health_reason = "---" if target['TargetHealth']['State'] == "healthy" else target['TargetHealth']['Reason']
                     health_description = "---" if target['TargetHealth']['State'] == "healthy" else target['TargetHealth']['Description']
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":target['Target']['Id']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":str(target['Target']['Port'])}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":"<NA>"}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":target['TargetHealth']['State']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":health_reason}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":health_description}]})
