@@ -495,7 +495,7 @@ endpoint_services_tbl = {
                 "cells": [
                     { # Cell 0
                         "background": orange_spacer,
-                        "paragraphs": []
+                        "paragraphs": [] # This will be the Endpoint Service Name (proper name, not the tag)
                     },
                     {
                         "merge": None
