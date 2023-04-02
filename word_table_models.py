@@ -1028,11 +1028,11 @@ ec2_inst_interface_tbl_header = {
     "cells": [
         {
             "background": table_header_color,
-            "paragraphs": [{"style": "regularbold", "text": "INT ID"}]
+            "paragraphs": [{"style": "regularbold", "text": "INT ID/DESCRIPTION"}]
         },
         {
             "background": table_header_color,
-            "paragraphs": [{"style": "regularbold", "text": "PRIV IP"}]
+            "paragraphs": [{"style": "regularbold", "text": "PRIV IPS"}]
         },
         {
             "background": table_header_color,
