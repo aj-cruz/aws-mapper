@@ -1891,7 +1891,15 @@ def add_load_balancers_to_word_doc():
                                 rprint("    [orange]WARNING: Multiple Target Groups detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
                             # Derive Target Group from ARN
                             tg_name = listener['DefaultActions'][0]['TargetGroupArn'].split("/")[1]
-                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":f"{listener['Protocol']}:{listener['Port']}"}]})
+                            try: # Get Protocol
+                                listener_protocol = listener['Protocol']
+                            except KeyError:
+                                listener_protocol = "<unknown>"
+                            try: # Get Port
+                                listener_port = listener['Port']
+                            except KeyError:
+                                listener_port = "<unknown>"
+                            this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":f"{listener_protocol}:{listener_port}"}]})
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tg_name}]})
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":listener['ListenerArn']}]})
                             this_rows_cells.append({"merge":None})
