@@ -266,6 +266,16 @@ def add_vpn_tgw_connections_to_topology():
             except botocore.exceptions.ClientError:
                 rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
 
+def add_endpoint_services_to_topology():
+    for region, v in topology.items():
+        if not region in non_region_topology_keys: # Ignore these keys, all the rest are regions
+            rprint(f"    [yellow]Interrogating Region {region} for Endpoint Services...")
+            ec2 = boto3.client('ec2',region_name=region,verify=False)
+            try:
+                v['endpoint_services'] = [svc for svc in ec2.describe_vpc_endpoint_servicess()['ServiceNames']]
+            except botocore.exceptions.ClientError:
+                rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
+
 def add_vpc_peering_connections_to_topology():
     pcx = [conn for conn in ec2.describe_vpc_peering_connections()['VpcPeeringConnections']]
     topology['vpc_peering_connections'] = pcx
@@ -1891,7 +1901,7 @@ def add_load_balancers_to_word_doc():
                                 rprint("    [orange]WARNING: Multiple Target Groups detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
                             # Derive Target Group from ARN
                             tg_name = listener['DefaultActions'][0]['TargetGroupArn'].split("/")[1]
-                            try: # Get Protocol
+                            try: # Get Protocol (Gateway Load Balancers don't have a default protocol and port in the listener, so if none exists we look into the target group)
                                 listener_protocol = listener['Protocol']
                             except KeyError:
                                 tg = [tg for tg in vpc['lb_target_groups'] if tg['TargetGroupArn'] == listener['DefaultActions'][0]['TargetGroupArn']][0]
@@ -2091,31 +2101,34 @@ if __name__ == "__main__":
 
             add_regions_to_topology()
 
-            rprint("\n[yellow]STEP 1/11: DISCOVER REGION VPCS")
+            rprint("\n[yellow]STEP 1/12: DISCOVER REGION VPCS")
             add_vpcs_to_topology()
 
-            rprint("\n\n[yellow]STEP 2/11: DISCOVER VPC NETWORK ELEMENTS")
+            rprint("\n\n[yellow]STEP 2/12: DISCOVER VPC NETWORK ELEMENTS")
             add_network_elements_to_vpcs()
 
-            rprint("\n[yellow]STEP 3/11: DISCOVER REGION PREFIX LISTS")
+            rprint("\n[yellow]STEP 3/12: DISCOVER REGION PREFIX LISTS")
             add_prefix_lists_to_topology()
 
-            rprint("\n[yellow]STEP 4/11: DISCOVER REGION VPN CUSTOMER GATEWAYS")
+            rprint("\n[yellow]STEP 4/12: DISCOVER REGION VPN CUSTOMER GATEWAYS")
             add_vpn_customer_gateways_to_topology()
 
-            rprint("\n[yellow]STEP 5/11: DISCOVER REGION VPN CONNECTIONS ATTACHED TO TRANSIT GATEAWAYS")
+            rprint("\n[yellow]STEP 5/12: DISCOVER REGION VPN CONNECTIONS ATTACHED TO TRANSIT GATEAWAYS")
             add_vpn_tgw_connections_to_topology()
 
-            rprint("\n\n[yellow]STEP 6/11: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
+            rprint("\n[yellow]STEP 6/12: DISCOVER REGION VPC ENDPOINT SERVICES")
+            add_endpoint_services_to_topology()
+
+            rprint("\n\n[yellow]STEP 7/12: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
             add_vpc_peering_connections_to_topology()
 
-            rprint("\n\n[yellow]STEP 7/11: DISCOVERING REGION TRANSIT GATEWAYS")
+            rprint("\n\n[yellow]STEP 8/12: DISCOVERING REGION TRANSIT GATEWAYS")
             add_transit_gateways_to_topology()
 
-            rprint("\n\n[yellow]STEP 8/11: DISCOVERING REGION TRANSIT GATEWAY ROUTES")
+            rprint("\n\n[yellow]STEP 9/12: DISCOVERING REGION TRANSIT GATEWAY ROUTES")
             add_transit_gateway_routes_to_topology()
 
-            rprint("\n\n[yellow]STEP 9/11: DISCOVERING DIRECT CONNECT")
+            rprint("\n\n[yellow]STEP 10/12: DISCOVERING DIRECT CONNECT")
             add_direct_connect_to_topology()
         else:
             # Get the first toplogy file from the current working directory
@@ -2131,7 +2144,7 @@ if __name__ == "__main__":
 
         filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
 
-        rprint("\n\n[yellow]STEP 10/11: BUILD WORD DOCUMENT OBJECT")
+        rprint("\n\n[yellow]STEP 11/12: BUILD WORD DOCUMENT OBJECT")
         doc_obj = create_word_obj_from_template(word_template)
         rprint("[yellow]    Creating VPC table...")
         add_vpcs_to_word_doc()
@@ -2184,7 +2197,7 @@ if __name__ == "__main__":
         rprint("[yellow]    Creating EC2 Instances table...")
         add_instances_to_word_doc()
 
-        rprint("\n\n[yellow]STEP 11/11: WRITING ARTIFACTS TO FILE SYSTEM")
+        rprint("\n\n[yellow]STEP 12/12: WRITING ARTIFACTS TO FILE SYSTEM")
         rprint("    [yellow]Saving Word document...")
         # Get Platform
         system_os = platform.system().lower()
