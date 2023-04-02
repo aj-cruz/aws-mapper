@@ -1894,11 +1894,13 @@ def add_load_balancers_to_word_doc():
                             try: # Get Protocol
                                 listener_protocol = listener['Protocol']
                             except KeyError:
-                                listener_protocol = "<unknown>"
+                                tg = [tg for tg in vpc['lb_target_groups'] if tg['TargetGroupArn'] == listener['DefaultActions'][0]['TargetGroupArn']][0]
+                                listener_protocol = tg['Protocol']
                             try: # Get Port
                                 listener_port = listener['Port']
                             except KeyError:
-                                listener_port = "<unknown>"
+                                tg = [tg for tg in vpc['lb_target_groups'] if tg['TargetGroupArn'] == listener['DefaultActions'][0]['TargetGroupArn']][0]
+                                listener_port = tg['Port']
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":f"{listener_protocol}:{listener_port}"}]})
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":tg_name}]})
                             this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":listener['ListenerArn']}]})
