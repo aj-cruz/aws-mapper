@@ -491,20 +491,67 @@ endpoint_services_tbl = {
     "table": {
         "style": "plain",
         "rows": [
-            {
+            { # Row 0
                 "cells": [
-                    {
-                        "background": table_header_color,
-                        "paragraphs": [{"style": "regularbold", "text": "NAME"}]
-                    },
-                    {
+                    { # Cell 0
+                        "background": orange_spacer,
                         "paragraphs": []
                     },
                     {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                ]
+            },
+            { # Row 1
+                "cells": [
+                    { # Cell 0
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "NAME"}]
+                    },
+                    { # Cell 1
+                        "paragraphs": []
+                    },
+                    { # Cell 2
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "ID"}]
                     },
+                    { # Cell 3
+                        "paragraphs": []
+                    },
                     {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                ]
+            },
+            { # Row 2
+                "cells": [
+                    { # Cell 0
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "TYPE"}]
+                    },
+                    { # Cell 1
+                        "paragraphs": []
+                    },
+                    { # Cell 2
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "AVAILABILITY ZONES"}]
+                    },
+                    { # Cell 3
                         "paragraphs": []
                     },
                     {
