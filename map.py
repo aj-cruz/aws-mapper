@@ -313,7 +313,7 @@ def add_transit_gateways_to_topology():
                     for attachment in attachments: # Loop through VPC attachments and set ApplianceModeSupport option
                         appliance_mode_support = "disable"
                         if attachment['ResourceType'] == "vpc":
-                            attachment_options = ec2.describe_transit_gateway_vpc_attachments(Filters=[{'Name':tgw['TransitGatewayAttachmentId']}])['TransitGatewayVpcAttachments'][0]
+                            attachment_options = ec2.describe_transit_gateway_vpc_attachments(Filters=[{'Name':attachment['TransitGatewayAttachmentId']}])['TransitGatewayVpcAttachments'][0]
                             appliance_mode_support = attachment_options['Options']['ApplianceModeSupport']
                         attachment['ApplianceModeSupport'] = appliance_mode_support
                     tgw['attachments'] = attachments
@@ -1421,7 +1421,6 @@ def add_transit_gateways_to_word_doc():
             for rownum, tgw in enumerate(attributes['transit_gateways']):
                 if rownum > 0: # Inject an empty row to space the data
                     model['table']['rows'].append({"cells":[]})
-                model['table']['rows'].append({"cells": [{"background":orange_spacer, "paragraphs":[{"style":"regularbold","text":"TRANSIT GATEWAY"}]}]})
                 try: # Get TGW name
                     tgw_name = [tag['Value'] for tag in tgw['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
@@ -1432,10 +1431,10 @@ def add_transit_gateways_to_word_doc():
                     tgw_name = ""
                 # Create child table model & populate header rows with data
                 child_model = deepcopy(word_table_models.tgw_tbl)
-                child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":tgw_name})
-                child_model['table']['rows'][0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":tgw['TransitGatewayId']})
-                child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":str(tgw['Options']['AmazonSideAsn'])})
-                child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing" if tgw['OwnerId'] == topology['account']['id'] else "redtext","text":tgw['OwnerId']})
+                child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":tgw_name})
+                child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":tgw['TransitGatewayId']})
+                child_model['table']['rows'][2]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":str(tgw['Options']['AmazonSideAsn'])})
+                child_model['table']['rows'][2]['cells'][3]['paragraphs'].append({"style":"No Spacing" if tgw['OwnerId'] == topology['account']['id'] else "redtext","text":tgw['OwnerId']})
                 # Populate child table model with spacer and attachment header
                 child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs":[{"style":"regularbold","text":"ATTACHMENTS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                 child_model['table']['rows'].append(deepcopy(word_table_models.tgw_attachment_tbl_header))

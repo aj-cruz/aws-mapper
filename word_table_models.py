@@ -637,20 +637,40 @@ tgw_tbl = {
     "table": {
         "style": "plain",
         "rows": [
-            {
+            { # Row 0
                 "cells": [
                     {
+                        "background": orange_spacer,
+                        "paragraphs": [{"style": "regularbold", "text": "TRANSIT GATEWAY"}]
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    }
+                ]
+            },
+            { # Row 1
+                "cells": [
+                    { # Cell 0
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "TGW NAME"}]
                     },
-                    {
+                    { # Cell 1
                         "paragraphs": []
                     },
-                    {
+                    { # Cell 2
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "ID"}]
                     },
-                    {
+                    { # Cell 3
                         "paragraphs": []
                     },
                     {
@@ -658,20 +678,20 @@ tgw_tbl = {
                     }
                 ]
             },
-            {
+            { # Row 2
                 "cells": [
-                    {
+                    { # Cell 0
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "BGP ASN"}]
                     },
-                    {
+                    { # Cell 1
                         "paragraphs": []
                     },
-                    {
+                    { # Cell 2
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "OWNER ID"}]
                     },
-                    {
+                    { # Cell 3
                         "paragraphs": []
                     },
                     {
