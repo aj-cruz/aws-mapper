@@ -1458,6 +1458,10 @@ def add_transit_gateways_to_word_doc():
                         rt_id = attch['Association']['TransitGatewayRouteTableId']
                     except KeyError:
                         rt_id = ""
+                    # Set Resource Type (if VPC, check appliance mode and append to output)
+                    resource_type = attch['ResourceType']
+                    if resource_type == "vpc" and attch['ApplianceModeSupport'] == "enable":
+                        resource_type = f"{attch['ResourceType']} (Appliance Mode Enabled)"
                     # Add data to row/cells
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch_name}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['TransitGatewayAttachmentId']}]})
