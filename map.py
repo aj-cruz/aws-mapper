@@ -1465,7 +1465,7 @@ def add_transit_gateways_to_word_doc():
                     # Add data to row/cells
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch_name}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['TransitGatewayAttachmentId']}]})
-                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['ResourceType']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":resource_type}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['ResourceId']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt_id}]})
                     # add attachment data row to child table model
