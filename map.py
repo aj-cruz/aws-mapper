@@ -313,7 +313,7 @@ def add_transit_gateways_to_topology():
                     for attachment in attachments: # Loop through VPC attachments and set ApplianceModeSupport option
                         appliance_mode_support = "disable"
                         if attachment['ResourceType'] == "vpc":
-                            attachment_options = ec2.describe_transit_gateway_vpc_attachments(Filters=[{'Name':attachment['TransitGatewayAttachmentId']}])['TransitGatewayVpcAttachments'][0]
+                            attachment_options = ec2.describe_transit_gateway_vpc_attachments(Filters=[{'Name':'transit-gateway-attachment-id','Values':[attachment['TransitGatewayAttachmentId']]}])['TransitGatewayVpcAttachments'][0]
                             appliance_mode_support = attachment_options['Options']['ApplianceModeSupport']
                         attachment['ApplianceModeSupport'] = appliance_mode_support
                     tgw['attachments'] = attachments
