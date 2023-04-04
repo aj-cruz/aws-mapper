@@ -1431,15 +1431,15 @@ def add_vpc_peerings_to_word_doc(doc_obj):
 
 def add_transit_gateways_to_word_doc(doc_obj):
     # Create the parent table model
-    model = deepcopy(word_table_models.parent_tbl)
+    parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
     for region, attributes in topology.items():
         if not region in non_region_topology_keys and attributes['transit_gateways']: # Ignore these dictionary keys, they are not a region, also don't run if there are no transit gateways in the region
             # Create Table title (Region)
-            model['table']['rows'].append({"cells": [{"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]}]})
+            parent_model['table']['rows'].append({"cells": [{"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]}]})
             for rownum, tgw in enumerate(attributes['transit_gateways']):
                 if rownum > 0: # Inject an empty row to space the data
-                    model['table']['rows'].append({"cells":[]})
+                    parent_model['table']['rows'].append({"cells":[]})
                 try: # Get TGW name
                     tgw_name = [tag['Value'] for tag in tgw['Tags'] if tag['Key'] == "Name"][0]
                 except KeyError:
@@ -1521,11 +1521,13 @@ def add_transit_gateways_to_word_doc(doc_obj):
                     # add route table header row to child table model
                     child_model['table']['rows'].append({"cells":this_rows_cells})
                 # Add child model to parent table model
-                model['table']['rows'].append({"cells":[child_model]})
+                parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    jprint(data=model)
-    table = build_table(doc_obj, model)
-    replace_placeholder_with_table(doc_obj, "{{py_tgws}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Transit Gateways Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_tgws}}", table)
 
 def add_transit_gateway_routes_to_word_doc(doc_obj):
     # Create the parent table model
