@@ -1317,9 +1317,11 @@ def add_endpoint_services_to_word_doc(doc_obj):
                 # Add child model to parent table model
                 parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
-    jprint(data=parent_model)
-    table = build_table(doc_obj, parent_model)
-    replace_placeholder_with_table(doc_obj, "{{py_endpoint_services}}", table)
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Endpoint Services Present"}]}]})
+    else:
+        table = build_table(doc_obj, parent_model)
+        replace_placeholder_with_table(doc_obj, "{{py_endpoint_services}}", table)
 
 def add_endpoints_to_word_doc(doc_obj):
     # Create the parent table model
