@@ -654,6 +654,9 @@ tgw_tbl = {
                     },
                     {
                         "merge": None
+                    },
+                    {
+                        "merge": None
                     }
                 ]
             },
@@ -667,13 +670,16 @@ tgw_tbl = {
                         "paragraphs": []
                     },
                     { # Cell 2
+                        "merge": None
+                    },
+                    { # Cell 3
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "ID"}]
                     },
-                    { # Cell 3
+                    { # Cell 4
                         "paragraphs": []
                     },
-                    {
+                    { # Cell 5
                         "merge": None
                     }
                 ]
@@ -688,13 +694,16 @@ tgw_tbl = {
                         "paragraphs": []
                     },
                     { # Cell 2
+                        "merge": None
+                    },
+                    { # Cell 3
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "OWNER ID"}]
                     },
-                    { # Cell 3
+                    { # Cell 4
                         "paragraphs": []
                     },
-                    {
+                    { # Cell 5
                         "merge": None
                     }
                 ]
@@ -723,7 +732,11 @@ tgw_attachment_tbl_header = {
         },
         {
             "background": table_header_color,
-            "paragraphs": [{"style": "regularbold", "text": "ROUTE TABLE ASSOC."}]
+            "paragraphs": [{"style": "regularbold", "text": "ROUTE TABLE ASSOC"}]
+        },
+        {
+            "background": table_header_color,
+            "paragraphs": [{"style": "regularbold", "text": "SUBNETS"}]
         }
     ]
 }
@@ -747,6 +760,9 @@ tgw_rt_tbl_header = {
         {
             "merge": None
         },
+        {
+            "merge": None
+        }
     ]
 }
 

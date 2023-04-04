@@ -28,7 +28,7 @@ green_spacer = "8FD400" # CC Green/Lime
 red_spacer = "F12938" # CC Red
 orange_spacer = "FF7900" # CC Orange
 alternating_row_color = "D5DCE4"
-region_list = [] # Leave blank to auto-pull and check all regions
+region_list = ["us-west-1"] # Leave blank to auto-pull and check all regions
 aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "-1": "All Traffic",
     "6": "TCP",
@@ -63,11 +63,24 @@ def extract_name_from_aws_tags(tags):
         name = "<unnamed>"
     return name
 
-def get_subnet_name_by_id(source_subnet_id, vpc):
+def get_subnet_name_by_id(source_subnet_id, source_vpc=None):
     # Return a subnet's name tag (if available) by looking up the name in the topology VPC structure
-    for subnet in vpc['subnets']:
-        if subnet['SubnetId'] == source_subnet_id:
-            return extract_name_from_aws_tags(subnet['Tags'])
+    if source_vpc:
+        for subnet in source_vpc['subnets']:
+            if subnet['SubnetId'] == source_subnet_id:
+                subnet_name = extract_name_from_aws_tags(subnet['Tags'])
+                break
+    else:
+        subnet_name = None
+        for region, vpcs in filtered_topology.items():
+            for vpc in vpcs:
+                for subnet in vpc['subnets']:
+                    if subnet['SubnetId'] == source_subnet_id:
+                        subnet_name = extract_name_from_aws_tags(subnet['Tags'])
+                        break
+                if subnet_name:
+                    break
+    return subnet_name
 # MAIN FUNCTIONS
 def get_regions():
     if region_list:
@@ -315,6 +328,9 @@ def add_transit_gateways_to_topology():
                         if attachment['ResourceType'] == "vpc":
                             attachment_options = ec2.describe_transit_gateway_vpc_attachments(Filters=[{'Name':'transit-gateway-attachment-id','Values':[attachment['TransitGatewayAttachmentId']]}])['TransitGatewayVpcAttachments'][0]
                             appliance_mode_support = attachment_options['Options']['ApplianceModeSupport']
+                            attachment['SubnetIds'] = attachment_options['SubnetIds']
+                        else:
+                            attachment['SubnetIds'] = ["<NA>"]
                         attachment['ApplianceModeSupport'] = appliance_mode_support
                     tgw['attachments'] = attachments
                     rts = [rt for rt in ec2.describe_transit_gateway_route_tables()['TransitGatewayRouteTables'] if rt['TransitGatewayId'] == tgw['TransitGatewayId']]
@@ -357,7 +373,7 @@ def add_transit_gateway_routes_to_topology():
             topology[region]['transit_gateway_routes'] = tgw_routes
 
 # BUILD WORD TABLE FUNCTIONS
-def add_vpcs_to_word_doc():
+def add_vpcs_to_word_doc(doc_obj):
     # Create the base table model
     vpc_model = deepcopy(word_table_models.vpc_tbl)
     # Populate the table model with data
@@ -388,7 +404,7 @@ def add_vpcs_to_word_doc():
     table = build_table(doc_obj, vpc_model)
     replace_placeholder_with_table(doc_obj, "{{py_vpcs}}", table)
 
-def add_route_tables_to_word_doc():
+def add_route_tables_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -452,7 +468,7 @@ def add_route_tables_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_rts}}", table)
 
-def add_routes_to_word_doc():
+def add_routes_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -517,7 +533,7 @@ def add_routes_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_rt_routes}}", table)
 
-def add_prefix_lists_to_word_doc():
+def add_prefix_lists_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -556,7 +572,7 @@ def add_prefix_lists_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_prefix_lists}}", table)
 
-def add_subnets_to_word_doc():
+def add_subnets_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -620,7 +636,7 @@ def add_subnets_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_subnets}}", table)
 
-def add_network_acls_to_word_doc():
+def add_network_acls_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -678,7 +694,7 @@ def add_network_acls_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_netacls}}", table)
 
-def add_netacl_inbound_entries_to_word_doc():
+def add_netacl_inbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -746,7 +762,7 @@ def add_netacl_inbound_entries_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_netacl_in_entries}}", table)
 
-def add_netacl_outbound_entries_to_word_doc():
+def add_netacl_outbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -814,7 +830,7 @@ def add_netacl_outbound_entries_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_netacl_out_entries}}", table)
 
-def add_security_groups_to_word_doc():
+def add_security_groups_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -872,7 +888,7 @@ def add_security_groups_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_sgs}}", table)
 
-def add_sg_inbound_entries_to_word_doc():
+def add_sg_inbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -982,7 +998,7 @@ def add_sg_inbound_entries_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_sg_in_entries}}", table)
 
-def add_sg_outbound_entries_to_word_doc():
+def add_sg_outbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1092,7 +1108,7 @@ def add_sg_outbound_entries_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_sg_out_entries}}", table)
 
-def add_internet_gateways_to_word_doc():
+def add_internet_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1145,7 +1161,7 @@ def add_internet_gateways_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_igws}}", table)
 
-def add_egress_only_internet_gateways_to_word_doc():
+def add_egress_only_internet_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1198,7 +1214,7 @@ def add_egress_only_internet_gateways_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_eigws}}", table)
 
-def add_nat_gateways_to_word_doc():
+def add_nat_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1277,7 +1293,7 @@ def add_nat_gateways_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_ngws}}", table)
 
-def add_endpoint_services_to_word_doc():
+def add_endpoint_services_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1304,7 +1320,7 @@ def add_endpoint_services_to_word_doc():
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_endpoint_services}}", table)
 
-def add_endpoints_to_word_doc():
+def add_endpoints_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1365,7 +1381,7 @@ def add_endpoints_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_endpoints}}", table)
 
-def add_vpc_peerings_to_word_doc():
+def add_vpc_peerings_to_word_doc(doc_obj):
     # Create the base table model
     model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1410,7 +1426,7 @@ def add_vpc_peerings_to_word_doc():
     table = build_table(doc_obj, model)
     replace_placeholder_with_table(doc_obj, "{{py_pcx}}", table)
 
-def add_transit_gateways_to_word_doc():
+def add_transit_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1432,11 +1448,11 @@ def add_transit_gateways_to_word_doc():
                 # Create child table model & populate header rows with data
                 child_model = deepcopy(word_table_models.tgw_tbl)
                 child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":tgw_name})
-                child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":tgw['TransitGatewayId']})
+                child_model['table']['rows'][1]['cells'][4]['paragraphs'].append({"style":"No Spacing","text":tgw['TransitGatewayId']})
                 child_model['table']['rows'][2]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":str(tgw['Options']['AmazonSideAsn'])})
-                child_model['table']['rows'][2]['cells'][3]['paragraphs'].append({"style":"No Spacing" if tgw['OwnerId'] == topology['account']['id'] else "redtext","text":tgw['OwnerId']})
+                child_model['table']['rows'][2]['cells'][4]['paragraphs'].append({"style":"No Spacing" if tgw['OwnerId'] == topology['account']['id'] else "redtext","text":tgw['OwnerId']})
                 # Populate child table model with spacer and attachment header
-                child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs":[{"style":"regularbold","text":"ATTACHMENTS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs":[{"style":"regularbold","text":"ATTACHMENTS"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                 child_model['table']['rows'].append(deepcopy(word_table_models.tgw_attachment_tbl_header))
                 # Populate child table with attachments
                 for rownum2, attch in enumerate(tgw['attachments'], start=1):
@@ -1462,16 +1478,22 @@ def add_transit_gateways_to_word_doc():
                     resource_type = attch['ResourceType']
                     if resource_type == "vpc" and attch['ApplianceModeSupport'] == "enable":
                         resource_type = f"{attch['ResourceType']} (Appliance Mode Enabled)"
+                    # Build Subnet Ids including names
+                    if len(attch['SubnetIds']) == 1 and attch['SubnetIds'][0] == "<NA>":
+                        subnets = attch['SubnetIds']
+                    else:
+                        subnets = [subnet + "(" + get_subnet_name_by_id(subnet) + ")" for subnet in attch['SubnetIds']]
                     # Add data to row/cells
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch_name}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['TransitGatewayAttachmentId']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":resource_type}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attch['ResourceId']}]})
                     this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":rt_id}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":subnets}]})
                     # add attachment data row to child table model
                     child_model['table']['rows'].append({"cells":this_rows_cells})
                 # Populate child table model with spacer and route table header
-                child_model['table']['rows'].append({"cells":[{"background":red_spacer,"paragraphs":[{"style":"regularbold","text":"ROUTE TABLES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
+                child_model['table']['rows'].append({"cells":[{"background":red_spacer,"paragraphs":[{"style":"regularbold","text":"ROUTE TABLES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
                 child_model['table']['rows'].append(deepcopy(word_table_models.tgw_rt_tbl_header))
                 for rownum2, rt in enumerate(tgw['route_tables'], start=1):
                     this_rows_cells = []
@@ -1501,7 +1523,7 @@ def add_transit_gateways_to_word_doc():
     table = build_table(doc_obj, model)
     replace_placeholder_with_table(doc_obj, "{{py_tgws}}", table)
 
-def add_transit_gateway_routes_to_word_doc():
+def add_transit_gateway_routes_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1552,7 +1574,7 @@ def add_transit_gateway_routes_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_tgw_routes}}", table)
 
-def add_vpn_customer_gateways_to_word():
+def add_vpn_customer_gateways_to_word(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1610,7 +1632,7 @@ def add_vpn_customer_gateways_to_word():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_vpn_cgws}}", table)
 
-def add_vpn_tgw_connections_to_word():
+def add_vpn_tgw_connections_to_word(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1683,7 +1705,7 @@ def add_vpn_tgw_connections_to_word():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_vpn_s2s}}", table)
 
-def add_vpn_gateways_to_word_doc():
+def add_vpn_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1822,7 +1844,7 @@ def add_vpn_gateways_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_vpn_vpgs}}", table)
 
-def add_direct_connect_gateways_to_word_doc():
+def add_direct_connect_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     model = deepcopy(word_table_models.parent_tbl)
     if not topology['direct_connect_gateways']:
@@ -1879,7 +1901,7 @@ def add_direct_connect_gateways_to_word_doc():
     table = build_table(doc_obj, model)
     replace_placeholder_with_table(doc_obj, "{{py_dcgws}}", table)
 
-def add_load_balancers_to_word_doc():
+def add_load_balancers_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -1946,7 +1968,7 @@ def add_load_balancers_to_word_doc():
                             if len(listener['DefaultActions']) > 1:
                                 rprint("    [orange]WARNING: Multiple Default Actions detected in load balancer object but script only expects one. Data may be missing, please notify script author.")
                             try: # Derive Target Group from ARN
-                                tg_names = [f"{tg['TargetGroupArn'].split('/')[1]}(weight:{tg['Weight']})" for tg in listener['DefaultActions'][0]['ForwardConfig']['TargetGroups']]
+                                tg_names = [tg['TargetGroupArn'].split('/')[1] + '' if not "Weight" in tg.keys() else tg['TargetGroupArn'].split('/')[1] + '(Weight: ' + str(tg['Weight']) + ')' for tg in listener['DefaultActions'][0]['ForwardConfig']['TargetGroups']]
                             except KeyError:
                                 tg_names = "---"
                             try: # Get Protocol (Gateway Load Balancers don't have a default protocol and port in the listener, so if none exists we look into the target group)
@@ -1976,7 +1998,7 @@ def add_load_balancers_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_load_balancers}}", table)
 
-def add_load_balancer_targets_to_word_doc():
+def add_load_balancer_targets_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # First populate non-vpc Load Balancer Targers
@@ -2083,7 +2105,7 @@ def add_load_balancer_targets_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_lb_target_groups}}", table)
 
-def add_instances_to_word_doc():
+def add_instances_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
@@ -2172,9 +2194,98 @@ def add_instances_to_word_doc():
         table = build_table(doc_obj, parent_model)
         replace_placeholder_with_table(doc_obj, "{{py_ec2_inst}}", table)
 
+def build_word_document():
+    rprint("\n\n[yellow]STEP 11/12: BUILD WORD DOCUMENT OBJECT")
+    doc_obj = create_word_obj_from_template(word_template)
+    rprint("[yellow]    Creating VPC table...")
+    add_vpcs_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Subnets table...")
+    add_subnets_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Route Tables table...")
+    add_route_tables_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Route Table Routes table...")
+    add_routes_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Prefix Lists table...")
+    add_prefix_lists_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Network ACLs table...")
+    add_network_acls_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Network ACL Inbound Entries table...")
+    add_netacl_inbound_entries_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Network ACL Outbound Entries table...")
+    add_netacl_outbound_entries_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Security Groups table...")
+    add_security_groups_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Security Group Inbound Entries table...")
+    add_sg_inbound_entries_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Security Group Outbound Entries table...")
+    add_sg_outbound_entries_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Internet Gateways table...")
+    add_internet_gateways_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Egress-Only Internet Gateways table...")
+    add_egress_only_internet_gateways_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating NAT Gateways table...")
+    add_nat_gateways_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Endpoint Services table...")
+    add_endpoint_services_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Endpoints table...")
+    add_endpoints_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating VPC Peerings table...")
+    add_vpc_peerings_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Transit Gateways table...")
+    add_transit_gateways_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Transit Gateway Routes table...")
+    add_transit_gateway_routes_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating VPN Customer Gateways table...")
+    add_vpn_customer_gateways_to_word(doc_obj)
+    rprint("[yellow]    Creating VPN Transit Gateway Connections table...")
+    add_vpn_tgw_connections_to_word(doc_obj)
+    rprint("[yellow]    Creating VPN Gateways table...")
+    add_vpn_gateways_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Direct Connect Gateways table...")
+    add_direct_connect_gateways_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Load Balancers table...")
+    add_load_balancers_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating Load Balancer Target Groups table...")
+    add_load_balancer_targets_to_word_doc(doc_obj)
+    rprint("[yellow]    Creating EC2 Instances table...")
+    add_instances_to_word_doc(doc_obj)
+    return doc_obj
+
+def write_artifacts_to_filesystem(doc_obj):
+    rprint(f"\n\n[yellow]STEP 12/12: WRITING ARTIFACTS TO FILE SYSTEM FOR {topology['account']['alias']}")
+    rprint("    [yellow]Saving Word document...")
+    # Get Platform
+    system_os = platform.system().lower()
+    def slasher():
+        # Returns the correct file system slash for the detected platform
+        return "\\" if system_os == "windows" else "/"
+    if topology['account']['alias'] == "":
+        word_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['id']} {str(datetime.datetime.now()).split()[0].replace('-','')}.docx"
+    else:
+        word_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.docx"
+    try:
+        doc_obj.save(word_file)
+    except:
+        rprint(f"\n\n:x: [red]Could not save output to {word_file}. If it is open please close and try again.\n\n")
+        sys.exit()
+    if not args.skip_topology:
+        if topology['account']['alias'] == "":
+            topology_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['id']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json"
+        else:
+            topology_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json"
+        rprint("    [yellow]Saving raw AWS topology...")
+        with open(topology_file, "w") as f:
+            f.write(json.dumps(topology,indent=4,default=datetime_converter))
+
+    rprint(f"\n\n[green]FILES WRITTEN, ALL DONE!!!!")
+    rprint(f"    [green]AWS As-Built Word Document written to: [blue]{word_file}")
+    if not args.skip_topology:
+        rprint(f"    [green]Raw AWS topology file written to: [blue]{topology_file}")
+    rprint("[yellow]NOTE: Be sure to update the Word Document Table of Contents as dynamically-created headlines will not be reflected in the TOC until that is done.\n\n")
+
 if __name__ == "__main__":
     try:
-        if not args.skip_topology:
+        if not args.skip_topology: # If we don't supply the -t flag, we need to build the topology by actively reach ing out to the AWS API
             ec2 = boto3.client('ec2', verify=False)
             available_regions = get_regions()
             topology = {}
@@ -2218,105 +2329,24 @@ if __name__ == "__main__":
 
             rprint("\n\n[yellow]STEP 10/12: DISCOVERING DIRECT CONNECT")
             add_direct_connect_to_topology()
-        else:
-            # Get the first toplogy file from the current working directory
+            topologies = [topology]
+        else: # -t flag supplied so we know the topology already exists in a JSON file or files
+            # Build a list of topology files
             fp = pathlib.Path(os.getcwd())
             file_list = [f.name for f in fp.iterdir() if f.is_file() and f.name.endswith(".json")]
-            if len(file_list) > 1:
-                rprint("\n\n :x: [red]Multiple Topology files detected in the current working directory.")
-                rprint("[red]Please ensure only one exists. Exiting...")
-                sys.exit(1)
-            else:
-                with open(file_list[0], "r") as f:
-                    topology = json.load(f)
+            # Build a list of extracted topologies
+            topologies = []
+            for file in file_list:
+                with open(file, "r") as f:
+                    topologies.append(json.load(f))
 
-        filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
+        for topology in topologies:
+            # Build a list of just regions and their VPCs (so we don't have to filter them every time we want to loop over region VPCs)
+            filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
 
-        rprint("\n\n[yellow]STEP 11/12: BUILD WORD DOCUMENT OBJECT")
-        doc_obj = create_word_obj_from_template(word_template)
-        rprint("[yellow]    Creating VPC table...")
-        add_vpcs_to_word_doc()
-        rprint("[yellow]    Creating Subnets table...")
-        add_subnets_to_word_doc()
-        rprint("[yellow]    Creating Route Tables table...")
-        add_route_tables_to_word_doc()
-        rprint("[yellow]    Creating Route Table Routes table...")
-        add_routes_to_word_doc()
-        rprint("[yellow]    Creating Prefix Lists table...")
-        add_prefix_lists_to_word_doc()
-        rprint("[yellow]    Creating Network ACLs table...")
-        add_network_acls_to_word_doc()
-        rprint("[yellow]    Creating Network ACL Inbound Entries table...")
-        add_netacl_inbound_entries_to_word_doc()
-        rprint("[yellow]    Creating Network ACL Outbound Entries table...")
-        add_netacl_outbound_entries_to_word_doc()
-        rprint("[yellow]    Creating Security Groups table...")
-        add_security_groups_to_word_doc()
-        rprint("[yellow]    Creating Security Group Inbound Entries table...")
-        add_sg_inbound_entries_to_word_doc()
-        rprint("[yellow]    Creating Security Group Outbound Entries table...")
-        add_sg_outbound_entries_to_word_doc()
-        rprint("[yellow]    Creating Internet Gateways table...")
-        add_internet_gateways_to_word_doc()
-        rprint("[yellow]    Creating Egress-Only Internet Gateways table...")
-        add_egress_only_internet_gateways_to_word_doc()
-        rprint("[yellow]    Creating NAT Gateways table...")
-        add_nat_gateways_to_word_doc()
-        rprint("[yellow]    Creating Endpoint Services table...")
-        add_endpoint_services_to_word_doc()
-        rprint("[yellow]    Creating Endpoints table...")
-        add_endpoints_to_word_doc()
-        rprint("[yellow]    Creating VPC Peerings table...")
-        add_vpc_peerings_to_word_doc()
-        rprint("[yellow]    Creating Transit Gateways table...")
-        add_transit_gateways_to_word_doc()
-        rprint("[yellow]    Creating Transit Gateway Routes table...")
-        add_transit_gateway_routes_to_word_doc()
-        rprint("[yellow]    Creating VPN Customer Gateways table...")
-        add_vpn_customer_gateways_to_word()
-        rprint("[yellow]    Creating VPN Transit Gateway Connections table...")
-        add_vpn_tgw_connections_to_word()
-        rprint("[yellow]    Creating VPN Gateways table...")
-        add_vpn_gateways_to_word_doc()
-        rprint("[yellow]    Creating Direct Connect Gateways table...")
-        add_direct_connect_gateways_to_word_doc()
-        rprint("[yellow]    Creating Load Balancers table...")
-        add_load_balancers_to_word_doc()
-        rprint("[yellow]    Creating Load Balancer Target Groups table...")
-        add_load_balancer_targets_to_word_doc()
-        rprint("[yellow]    Creating EC2 Instances table...")
-        add_instances_to_word_doc()
+            doc_obj = build_word_document()
 
-        rprint("\n\n[yellow]STEP 12/12: WRITING ARTIFACTS TO FILE SYSTEM")
-        rprint("    [yellow]Saving Word document...")
-        # Get Platform
-        system_os = platform.system().lower()
-        def slasher():
-            # Returns the correct file system slash for the detected platform
-            return "\\" if system_os == "windows" else "/"
-        if topology['account']['alias'] == "":
-            word_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['id']} {str(datetime.datetime.now()).split()[0].replace('-','')}.docx"
-        else:
-            word_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.docx"
-        try:
-            doc_obj.save(word_file)
-        except:
-            rprint(f"\n\n:x: [red]Could not save output to {word_file}. If it is open please close and try again.\n\n")
-            sys.exit()
-        if not args.skip_topology:
-            if topology['account']['alias'] == "":
-                topology_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['id']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json"
-            else:
-                topology_file = f"{os.getcwd()}{slasher()}{topology_folder}{slasher()}{topology['account']['alias']} {str(datetime.datetime.now()).split()[0].replace('-','')}.json"
-            rprint("    [yellow]Saving raw AWS topology...")
-            with open(topology_file, "w") as f:
-                f.write(json.dumps(topology,indent=4,default=datetime_converter))
-
-        rprint(f"\n\n[green]FILES WRITTEN, ALL DONE!!!!")
-        rprint(f"    [green]AWS As-Built Word Document written to: [blue]{word_file}")
-        if not args.skip_topology:
-            rprint(f"    [green]Raw AWS topology file written to: [blue]{topology_file}")
-        rprint("[yellow]NOTE: Be sure to update the Word Document Table of Contents as dynamically-created headlines will not be reflected in the TOC until that is done.\n\n")
+            write_artifacts_to_filesystem(doc_obj)
     except KeyboardInterrupt:
         rprint("\n\n[red]Exiting due to keyboard interrupt...\n")
         sys.exit()
