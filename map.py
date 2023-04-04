@@ -1523,6 +1523,7 @@ def add_transit_gateways_to_word_doc(doc_obj):
                 # Add child model to parent table model
                 model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
+    jprint(data=model)
     table = build_table(doc_obj, model)
     replace_placeholder_with_table(doc_obj, "{{py_tgws}}", table)
 
