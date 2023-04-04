@@ -28,7 +28,7 @@ green_spacer = "8FD400" # CC Green/Lime
 red_spacer = "F12938" # CC Red
 orange_spacer = "FF7900" # CC Orange
 alternating_row_color = "D5DCE4"
-region_list = ["us-west-1"] # Leave blank to auto-pull and check all regions
+region_list = [] # Leave blank to auto-pull and check all regions
 aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "-1": "All Traffic",
     "6": "TCP",
