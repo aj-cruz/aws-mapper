@@ -80,6 +80,7 @@ def get_subnet_name_by_id(source_subnet_id, source_vpc=None):
                         break
                 if subnet_name:
                     break
+    subnet_name = "" if not subnet_name else subnet_name
     return subnet_name
 # MAIN FUNCTIONS
 def get_regions():
