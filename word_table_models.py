@@ -1589,3 +1589,51 @@ lb_target_group_tbl = {
         ]
     }
 }
+
+best_practices_tbl = {
+		"table": {
+			"style": "plain",
+			"rows": [
+                { # Row 0
+                    "cells": [
+                        { # Cell 0
+                            "background": None,
+                            "paragraphs": [{"style": "regularbold", "text": ""}]
+                        },
+                        {"merge": None},
+                        {"merge": None},
+                        {"merge": None},
+                        {"merge": None}
+                    ]
+                },
+                { # Row 1
+                    "cells": [
+                        { # Cell 0
+                            "background": table_header_color,
+                            "paragraphs": [{"style": "regularbold", "text": "TEST DESCRIPTION"}]
+                        },
+                        { # Cell 1
+                            "paragraphs": [{"style": "No Spacing", "text": ""}]
+                        },
+                        {"merge": None},
+                        {"merge": None},
+                        {"merge": None}
+                    ]
+                },
+                { # Row 2
+                    "cells": [
+                        { # Cell 0
+                            "background": table_header_color,
+                            "paragraphs": [{"style": "regularbold", "text": "RESULT DETAILS"}]
+                        },
+                        { # Cell 1
+                            "paragraphs": [{"style": "No Spacing", "text": ""}]
+                        },
+                        {"merge": None},
+                        {"merge": None},
+                        {"merge": None}
+                    ]
+                }
+            ]
+		}
+	}

@@ -28,7 +28,7 @@ green_spacer = "8FD400" # CC Green/Lime
 red_spacer = "F12938" # CC Red
 orange_spacer = "FF7900" # CC Orange
 alternating_row_color = "D5DCE4"
-region_list = [] # Leave blank to auto-pull and check all regions
+region_list = ["us-west-1"] # Leave blank to auto-pull and check all regions
 aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "-1": "All Traffic",
     "6": "TCP",
@@ -373,6 +373,463 @@ def add_transit_gateway_routes_to_topology():
                     print(e)
             topology[region]['transit_gateway_routes'] = tgw_routes
 
+# BEST PRACTICE CHECK FUNCTIONS
+def add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj):
+    def run_tgw_quantity_check(tgws):
+        test_description = "Because Transit Gateways are highly available by design, multiple gateways per region are not required for high availability. https://docs.aws.amazon.com/vpc/latest/tgw/tgw-best-design-practices.html"
+        regions_with_multiple_tgws = [f"Region {region} has {len(gateways)} Transit Gateways." for tgw in tgws for region, gateways in tgw.items() if len(gateways) > 1]
+        if regions_with_multiple_tgws:
+            test_status = "warning"
+            regions_with_multiple_tgws.append("Confirm any specific use cases exist that call for multiple Transit Gateways in a region.")
+            test_results = regions_with_multiple_tgws
+        else:
+            test_status = "pass"
+            test_results = "All regions have no more than one Transit Gateway."
+        return {
+            "description": test_description,
+            "status": test_status,
+            "results": test_results
+        }
+
+    def run_unique_bgp_asn_check(tgws):
+        test_description = "For deployments with multiple transit gateways, a unique Autonomous System Number (ASN) for each transit gateway is recommended. https://docs.aws.amazon.com/vpc/latest/tgw/tgw-best-design-practices.html"
+        if len(tgws) == 1:
+            test_status = "not-applicable"
+            test_results = "Single Transit Gateway detected. This test is not applicable."
+        else:
+            tgw_bgp_asns = [gateway['Options']['AmazonSideAsn'] for tgw in tgws for gateways in tgw.values() for gateway in gateways]
+            if len(tgw_bgp_asns) == len(set(tgw_bgp_asns)):
+                test_status = "pass"
+                test_results = "All Transit Gateway ASNs are unique."
+            else:
+                # Get the duplicates
+                duplicates = set()
+                for i, asn1 in enumerate(tgw_bgp_asns):
+                    for asn2 in tgw_bgp_asns[i+1:]:
+                        if asn1 == asn2:
+                            duplicates.add(asn1)
+                test_status = "fail"
+                test_results = f"Detected re-use of ASNs: {list(duplicates)}"
+        return {
+            "description": test_description,
+            "status": test_status,
+            "results": test_results
+        }
+
+    def run_one_net_acl_check(tgws):
+        test_description = "Create one network ACL and associate it with all of the subnets that are associated with the transit gateway. https://docs.aws.amazon.com/vpc/latest/tgw/tgw-best-design-practices.html"
+        # Build a list of Transit Gateway ID / Subnet, key / value pairs
+        subnets = [{gateway['TransitGatewayId']:subnet} for tgw in tgws for gateways in tgw.values() for gateway in gateways for attachment in gateway['attachments'] if "SubnetIds" in attachment.keys() for subnet in attachment['SubnetIds']]
+        # Build a list of Subnet IDs for each Transit Gateway
+        tgw_subnets = {}
+        for each in subnets:
+            for tgw, subnet in each.items():
+                if tgw in tgw_subnets:
+                    tgw_subnets[tgw].append(subnet)
+                else:
+                    tgw_subnets[tgw] = [subnet]
+        # Loop through the Transit Gateways and pull the Network ACL assigned to each subnet. Update fail_list if any VPCs have attachments in different NACLS
+        fail_list = []
+        account_net_acls_in_use = {}
+        for tgw, subnets in tgw_subnets.items():
+            network_acls_in_use = {}
+            for subnet in subnets:
+                # Loop through all VPC Network ACLs and pull the Network ACL ID where this subnet is associated
+                found = False
+                for vpcs in filtered_topology.values():
+                    for vpc in vpcs:
+                        for netacl in vpc['network_acls']:
+                            for association in netacl['Associations']:
+                                if association['SubnetId'] == subnet:
+                                    if not vpc['VpcId'] in network_acls_in_use.keys(): # VPC Not yet in dictionary
+                                        network_acls_in_use[vpc['VpcId']] = [netacl['NetworkAclId']]
+                                    elif not netacl['NetworkAclId'] in network_acls_in_use[vpc['VpcId']]: # VPC in dictionary but NetACL not in list yet
+                                        network_acls_in_use[vpc['VpcId']].append(netacl['NetworkAclId'])
+                                    found = True
+                                    break
+                        if found:
+                            break
+                    if found:
+                            break
+            account_net_acls_in_use[tgw] = network_acls_in_use
+            # Check to see if any VPCs have multiple Net ACLs, if so add it to the failed list
+            for vpc, nacl_list in network_acls_in_use.items():
+                if len(nacl_list) > 1: # Best Practice Check Failure
+                    fail_list.append({
+                        "TransitGatewayId": tgw,
+                        "vpcs": [
+                            {
+                                "VpcId": vpc,
+                                "NetworkAcls": nacl_list
+                            }
+                        ]
+                    })
+        
+        # Create Best Practice Check Return Status
+        if not fail_list:
+            test_status = "pass"
+            test_results = "All Transit Gateway VPC Attachment Subnets are in a single Network ACL."
+        else:
+            test_status = "fail"
+            test_results = [
+                "The following Transit Gateways have Attachment Subnets in multiple Network ACLs:",   
+            ] + [tgw['TransitGatewayId'] + '/' + vpc['VpcId'] + '/NetACLs: ' + str(vpc['NetworkAcls']) for tgw in fail_list for vpc in tgw['vpcs']]
+
+        return {
+            "description": test_description,
+            "status": test_status,
+            "results": test_results,
+            "net_acls": account_net_acls_in_use
+        }
+
+    def run_net_acl_open_check(test_results):
+        test_description = "Create one network ACL and associate it with all of the subnets that are associated with the transit gateway. Keep the network ACL open in both the inbound and outbound directions. https://docs.aws.amazon.com/vpc/latest/tgw/tgw-best-design-practices.html"
+        fail_list = []
+        for tgw, vpc_dict in test_results['net_acls'].items():
+            for vpc_id, nacl_list in vpc_dict.items():
+                vpc_dict = [{"region":region,"vpc":this_vpc} for region, vpcs in filtered_topology.items() for this_vpc in vpcs if this_vpc['VpcId'] == vpc_id][0]
+                for nacl in nacl_list:
+                    ingress_entries = [entry for acl in vpc_dict['vpc']['network_acls'] if acl['NetworkAclId'] == nacl for entry in sorted(acl['Entries'], key = lambda d : d['RuleNumber']) if not entry['Egress']]
+                    egress_entries = [entry for acl in vpc_dict['vpc']['network_acls'] if acl['NetworkAclId'] == nacl for entry in sorted(acl['Entries'], key = lambda d : d['RuleNumber']) if entry['Egress']]
+                    ingress_cidr_block = ingress_entries[0]['CidrBlock']
+                    ingress_protocol = ingress_entries[0]['Protocol']
+                    ingress_action =  ingress_entries[0]['RuleAction']
+                    if not ingress_cidr_block == "0.0.0.0/0" or not ingress_protocol == "-1" or not ingress_action == "allow": # Test Failed, add to fail_list
+                        fail_list.append({
+                            "TransitGatewayId": tgw,
+                            "Region": vpc_dict['region'],
+                            "VpcId": vpc_id,
+                            "NetworkAclId": nacl,
+                            "Direction": "Ingress",
+                            "EntryRuleNumber": ingress_entries[0]['RuleNumber']
+                        })
+                    egress_cidr_block = egress_entries[0]['CidrBlock']
+                    egress_protocol = egress_entries[0]['Protocol']
+                    egress_action =  egress_entries[0]['RuleAction']
+                    if not egress_cidr_block == "0.0.0.0/0" or not egress_protocol == "-1" or not egress_action == "allow": # Test Failed, add to fail_list
+                        fail_list.append({
+                            "TransitGatewayId": tgw,
+                            "Region": vpc_dict['region'],
+                            "VpcId": vpc_id,
+                            "NetworkAclId": nacl,
+                            "Direction": "Egress",
+                            "EntryRuleNumber": ingress_entries[0]['RuleNumber']
+                        })
+        # Create Best Practice Check Return Status
+        if not fail_list:
+            test_status = "pass"
+            test_results = "All Transit Gateway VPC Attachment Subnet Network ACLs are open."
+        else:
+            test_status = "fail"
+            test_results = [
+                "The following Transit Gateways VPC Attachment Subnet ACLs don't appear to be open. Please review their configuration to confirm:",   
+            ] + [nacl['VpcId']+ '/' + nacl['NetworkAclId'] + '(' + nacl['Direction'] + ')' for nacl in fail_list]
+
+        return {
+            "description": test_description,
+            "status": test_status,
+            "results": test_results
+        }
+
+    def run_vpn_attachment_bgp_check(tgws):
+        test_description = "Use Border Gateway Protocol (BGP) Site-to-Site VPN connections. https://docs.aws.amazon.com/vpc/latest/tgw/tgw-best-design-practices.html"
+        fail_list = []
+        vpn_attachments = [{"TransitGatewayId":gw['TransitGatewayId'],"VpnId":attachment['ResourceId']} for each in tgws for gws in each.values() for gw in gws for attachment in gw['attachments'] if attachment['ResourceType'] == "vpn"]
+        for each in vpn_attachments:
+            each['vpn_connections'] = [conn for region, attributes in topology.items() if not region in non_region_topology_keys and "vpn_tgw_connections" in attributes for conn in attributes['vpn_tgw_connections'] if conn['VpnConnectionId'] == each['VpnId']]
+        for attachment in vpn_attachments:
+            for vpn in attachment['vpn_connections']:
+                # Check if attachments have static routes (infer BGP disabled if so)
+                if vpn['Options']['StaticRoutesOnly']:
+                    fail_list.append({
+                        "TransitGatewayId": vpn['TransitGatewayId'],
+                        "VpnId": vpn['VpnConnectionId'],
+                        "Routing": "Static",
+                        "Tunnels": vpn['VgwTelemetry']
+                    })
+                elif sum([tunnel['AcceptedRouteCount'] for tunnel in vpn['VgwTelemetry']]) == 0: # No learned routes, infer BGP not enabled or not functioning
+                    fail_list.append({
+                        "TransitGatewayId": vpn['TransitGatewayId'],
+                        "VpnId": vpn['VpnConnectionId'],
+                        "Routing": "Dynamic",
+                        "Tunnels": vpn['VgwTelemetry']
+                    })
+
+        # Create Best Practice Check Return Status
+        if not fail_list:
+            test_status = "pass"
+            test_results = "All Transit Gateway VPN connections are learning routes dynamically (BGP enabled)."
+        else:
+            test_status = "fail"
+            test_results = [
+                "The following Transit Gateway VPNs are not enabled for dynamic routing or are not learning routes:",   
+            ] + [vpn['TransitGatewayId'] + '/' + vpn['VpnId'] for vpn in fail_list]
+
+        return {
+            "description": test_description,
+            "status": test_status,
+            "results": test_results
+        }
+
+    tgws = [{region:attributes['transit_gateways']} for region, attributes in topology.items() if not region in non_region_topology_keys and attributes['transit_gateways']]
+    # Create the parent table model
+    parent_model = deepcopy(word_table_models.parent_tbl)
+
+    if tgws:
+        # Run best practice checks
+        tgw_quantity_check = run_tgw_quantity_check(tgws)
+        unique_bgp_asn_check = run_unique_bgp_asn_check(tgws)
+        one_net_acl_check = run_one_net_acl_check(tgws)
+        net_acl_open_check = run_net_acl_open_check(one_net_acl_check)
+        vpn_attachment_bgp_check = run_vpn_attachment_bgp_check(tgws)
+
+        # Create the tgw_quantity_check child table model
+        child_model = deepcopy(word_table_models.best_practices_tbl)
+        # Populate the child model with test data
+        header_color = green_spacer if tgw_quantity_check['status'] == "pass" else orange_spacer
+        child_model['table']['rows'][0]['cells'][0]['background'] = header_color
+        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"TGW PER-REGION QUANTITY CHECK: {tgw_quantity_check['status'].upper()}"
+        child_model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = tgw_quantity_check['description']
+        child_model['table']['rows'][2]['cells'][1]['paragraphs'][0]['text'] = tgw_quantity_check['results']
+        # Inject child model into parent model
+        parent_model['table']['rows'].append({"cells":[child_model]})
+
+        # Create the unique_bgp_asn_check child table model
+        child_model = deepcopy(word_table_models.best_practices_tbl)
+        # Inject a space between child tables
+        parent_model['table']['rows'].append({"cells":[]})
+        # Populate the child model with test data
+        header_color = green_spacer if unique_bgp_asn_check['status'] in ["pass","not-applicable"] else red_spacer
+        child_model['table']['rows'][0]['cells'][0]['background'] = header_color
+        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"UNIQUE BGP ASN CHECK: {unique_bgp_asn_check['status'].upper()}"
+        child_model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = unique_bgp_asn_check['description']
+        child_model['table']['rows'][2]['cells'][1]['paragraphs'][0]['text'] = unique_bgp_asn_check['results']
+        # Inject child model into parent model
+        parent_model['table']['rows'].append({"cells":[child_model]})
+
+        # Create the one_net_acl_check child table model
+        child_model = deepcopy(word_table_models.best_practices_tbl)
+        # Inject a space between child tables
+        parent_model['table']['rows'].append({"cells":[]})
+        # Populate the child model with test data
+        header_color = green_spacer if one_net_acl_check['status'] == "pass" else red_spacer
+        child_model['table']['rows'][0]['cells'][0]['background'] = header_color
+        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"ONE NET ACL FOR ATTACHMENT SUBNETS CHECK: {one_net_acl_check['status'].upper()}"
+        child_model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = one_net_acl_check['description']
+        child_model['table']['rows'][2]['cells'][1]['paragraphs'][0]['text'] = one_net_acl_check['results']
+        # Inject child model into parent model
+        parent_model['table']['rows'].append({"cells":[child_model]})
+
+        # Create the net_acl_open_check child table model
+        child_model = deepcopy(word_table_models.best_practices_tbl)
+        # Inject a space between child tables
+        parent_model['table']['rows'].append({"cells":[]})
+        # Populate the child model with test data
+        header_color = green_spacer if net_acl_open_check['status'] == "pass" else red_spacer
+        child_model['table']['rows'][0]['cells'][0]['background'] = header_color
+        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"NET ACL OPEN CHECK: {net_acl_open_check['status'].upper()}"
+        child_model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = net_acl_open_check['description']
+        child_model['table']['rows'][2]['cells'][1]['paragraphs'][0]['text'] = net_acl_open_check['results']
+        # Inject child model into parent model
+        parent_model['table']['rows'].append({"cells":[child_model]})
+
+        # Create the vpn_attachment_bgp_check child table model
+        child_model = deepcopy(word_table_models.best_practices_tbl)
+        # Inject a space between child tables
+        parent_model['table']['rows'].append({"cells":[]})
+        # Populate the child model with test data
+        header_color = green_spacer if vpn_attachment_bgp_check['status'] == "pass" else red_spacer
+        child_model['table']['rows'][0]['cells'][0]['background'] = header_color
+        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"VPN ATTACHMENT BGP CHECK: {vpn_attachment_bgp_check['status'].upper()}"
+        child_model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = vpn_attachment_bgp_check['description']
+        child_model['table']['rows'][2]['cells'][1]['paragraphs'][0]['text'] = vpn_attachment_bgp_check['results']
+        # Inject child model into parent model
+        parent_model['table']['rows'].append({"cells":[child_model]})
+
+    # Write parent table to Word
+    if not parent_model['table']['rows']: # Completely Empty Table (no Transit Gateways)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Transit Gateways Present"}]}]})
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_tgw_best_practices}}", table)
+
+def add_vpn_best_practice_analysis_to_word_doc(doc_obj):
+    def run_vpn_tunnel_status_check():
+        test_description = "Report any VPN tunnel connections in the DOWN state."
+        fail_list = []
+        for vpn in vpns:
+            for tunnel in vpn['VgwTelemetry']:
+                if tunnel['Status'] == "DOWN":
+                    fail_list.append({
+                        "VpnId": vpn['VpnConnectionId'],
+                        "TunnelIp": tunnel['OutsideIpAddress']
+                    })
+        # Create Best Practice Check Return Status
+        if not fail_list:
+            test_status = "pass"
+            test_results = "All VPN Tunnel Connections are in Status 'UP' State."
+        else:
+            test_status = "fail"
+            test_results = [
+                "The following VPN Tunnel Connections are in Status 'DOWN' State:",   
+            ] + [vpn['VpnId'] + '/' + vpn['TunnelIp'] for vpn in fail_list]
+
+        return {
+            "description": test_description,
+            "status": test_status,
+            "results": test_results
+        }
+
+    # Get VPN connections in vpn_tgw_connections dictionary key
+    vpns = [vpn for region, attributes in topology.items() if region not in non_region_topology_keys and "vpn_tgw_connections" in attributes for vpn in attributes['vpn_tgw_connections']]
+    # Add VPN connections in VPC VPN Gateways
+    vpns += [vpn for vpcs in filtered_topology.values() for vpc in vpcs for vgw in vpc['vpn_gateways'] for vpn in vgw['connections']]
+    # Create the parent table model
+    parent_model = deepcopy(word_table_models.parent_tbl)
+
+    if vpns:
+        # Run best practice checks
+        vpn_tunnel_status_check = run_vpn_tunnel_status_check()
+
+        # Create the _vpn_tunnel_status_check child table model
+        child_model = deepcopy(word_table_models.best_practices_tbl)
+        # Populate the child model with test data
+        header_color = green_spacer if vpn_tunnel_status_check['status'] == "pass" else red_spacer
+        child_model['table']['rows'][0]['cells'][0]['background'] = header_color
+        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"VPN TUNNEL STATUS CHECK: {vpn_tunnel_status_check['status'].upper()}"
+        child_model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = vpn_tunnel_status_check['description']
+        child_model['table']['rows'][2]['cells'][1]['paragraphs'][0]['text'] = vpn_tunnel_status_check['results']
+        # Inject child model into parent model
+        parent_model['table']['rows'].append({"cells":[child_model]})
+
+    # Write parent table to Word
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPNs)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPNs Present"}]}]})
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_vpn_health}}", table)
+
+def add_vpc_best_practice_analysis_to_word_doc(doc_obj):
+    def run_empty_vpc_check():
+        test_description = "Report any VPCs with no EC2 instances."
+        fail_list = []
+        for region, vpcs in filtered_topology.items():
+            for vpc in vpcs:
+                if not vpc['ec2_instances']:
+                    fail_list.append({
+                        "region": region,
+                        "vpc_id": vpc['VpcId'],
+                        "vpc_name": extract_name_from_aws_tags(vpc['Tags'])
+                    })
+        # Create Best Practice Check Return Status
+        if not fail_list:
+            test_status = "pass"
+            test_results = "All VPCs have at least one EC2 instance."
+        else:
+            test_status = "warn"
+            test_results = [
+                "The following VPCs have no EC2 instances. Review VPC use case to confirm this is intentional:",   
+            ] + [vpc['region'] + '/' + vpc['vpc_id'] + '(' + vpc['vpc_name'] + ')' for vpc in fail_list]
+
+        return {
+            "description": test_description,
+            "status": test_status,
+            "results": test_results
+        }
+   
+    # Create the parent table model
+    parent_model = deepcopy(word_table_models.parent_tbl)
+
+    if len([vpc['VpcId'] for region, vpcs in filtered_topology.items() for vpc in vpcs]) > 0:
+        # Run best practice checks
+        empty_vpc_check = run_empty_vpc_check()
+
+        # Create the empty_vpc_check child table model
+        child_model = deepcopy(word_table_models.best_practices_tbl)
+        # Populate the child model with test data
+        header_color = green_spacer if empty_vpc_check['status'] == "pass" else orange_spacer
+        child_model['table']['rows'][0]['cells'][0]['background'] = header_color
+        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"EMPTY VPC CHECK: {empty_vpc_check['status'].upper()}"
+        child_model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = empty_vpc_check['description']
+        child_model['table']['rows'][2]['cells'][1]['paragraphs'][0]['text'] = empty_vpc_check['results']
+        # Inject child model into parent model
+        parent_model['table']['rows'].append({"cells":[child_model]})
+
+    # Write parent table to Word
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPNs)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPNs Present"}]}]})
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_vpc_health}}", table)
+
+def add_lb_best_practice_analysis_to_word_doc(doc_obj):
+    def run_lb_target_health_check():
+        test_description = "Report any Load Balancers with Targets in Unhealthy State."
+        fail_list = []
+        for lbtg in lbtgs:
+            for target in lbtg['lbtg']['HealthChecks']:
+                if not target['TargetHealth']['State'] == "healthy":
+                    # Get VPC Name
+                    for vpcs in filtered_topology.values():
+                        for vpc in vpcs:
+                            if vpc['VpcId'] == lbtg['lbtg']['VpcId']:
+                                vpc_name = extract_name_from_aws_tags(vpc['Tags'])
+                    fail_list.append({
+                        "region": lbtg['region'],
+                        "vpc_id": lbtg['lbtg']['VpcId'],
+                        "vpc_name": vpc_name,
+                        "target_id": target['Target']['Id']
+                    })
+        # Create Best Practice Check Return Status
+        if not fail_list:
+            test_status = "pass"
+            test_results = "All load balancer targets are in a healthy state."
+        else:
+            test_status = "fail"
+            test_results = [
+                "The following Load Balancer Targets are in an unhealthy state:",   
+            ] + [target['region'] + '/' + target['vpc_id'] + '(' + target['vpc_name'] + ')/' + target['target_id'] for target in fail_list]
+
+        return {
+            "description": test_description,
+            "status": test_status,
+            "results": test_results
+        }
+
+    lbtgs = [{"region":region,"lbtg":lbtg} for region, vpcs in filtered_topology.items() for vpc in vpcs for lbtg in vpc['lb_target_groups']]
+
+    # Create the parent table model
+    parent_model = deepcopy(word_table_models.parent_tbl)
+
+    if len([vpc['VpcId'] for region, vpcs in filtered_topology.items() for vpc in vpcs]) > 0:
+        # Run best practice checks
+        lb_target_health_check = run_lb_target_health_check()
+
+        # Create the lb_target_health_check child table model
+        child_model = deepcopy(word_table_models.best_practices_tbl)
+        # Populate the child model with test data
+        header_color = green_spacer if lb_target_health_check['status'] == "pass" else red_spacer
+        child_model['table']['rows'][0]['cells'][0]['background'] = header_color
+        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"LB TARGET HEALTH CHECK: {lb_target_health_check['status'].upper()}"
+        child_model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = lb_target_health_check['description']
+        child_model['table']['rows'][2]['cells'][1]['paragraphs'][0]['text'] = lb_target_health_check['results']
+        # Inject child model into parent model
+        parent_model['table']['rows'].append({"cells":[child_model]})
+
+    # Write parent table to Word
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPNs)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Load Balancer Targets Present"}]}]})
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_lb_health}}", table)
+
+def perform_best_practices_analysis(doc_obj):
+    rprint("\n\n[yellow]STEP 12/13: PERFORM BEST PRACTICE ANALYSIS")
+    rprint("[yellow]    Performing Transit Gateway Best Practices/Health Analysis and writing to Word table...")
+    add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj)
+    rprint("[yellow]    Performing VPN Best Practices/Health Analysis and writing to Word table...")
+    add_vpn_best_practice_analysis_to_word_doc(doc_obj)
+    rprint("[yellow]    Performing VPC Best Practices/Health Analysis and writing to Word table...")
+    add_vpc_best_practice_analysis_to_word_doc(doc_obj)
+    rprint("[yellow]    Performing Load Balancer Best Practices/Health Analysis and writing to Word table...")
+    add_lb_best_practice_analysis_to_word_doc(doc_obj)
+
 # BUILD WORD TABLE FUNCTIONS
 def add_vpcs_to_word_doc(doc_obj):
     # Create the base table model
@@ -465,9 +922,8 @@ def add_route_tables_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_rts}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_rts}}", table)
 
 def add_routes_to_word_doc(doc_obj):
     # Create the parent table model
@@ -530,9 +986,8 @@ def add_routes_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_rt_routes}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_rt_routes}}", table)
 
 def add_prefix_lists_to_word_doc(doc_obj):
     # Create the parent table model
@@ -569,9 +1024,8 @@ def add_prefix_lists_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no Prefix Lists at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Prefix Lists Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_prefix_lists}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_prefix_lists}}", table)
 
 def add_subnets_to_word_doc(doc_obj):
     # Create the parent table model
@@ -633,9 +1087,8 @@ def add_subnets_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_subnets}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_subnets}}", table)
 
 def add_network_acls_to_word_doc(doc_obj):
     # Create the parent table model
@@ -691,9 +1144,8 @@ def add_network_acls_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_netacls}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_netacls}}", table)
 
 def add_netacl_inbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
@@ -759,9 +1211,8 @@ def add_netacl_inbound_entries_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_netacl_in_entries}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_netacl_in_entries}}", table)
 
 def add_netacl_outbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
@@ -827,9 +1278,8 @@ def add_netacl_outbound_entries_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_netacl_out_entries}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_netacl_out_entries}}", table)
 
 def add_security_groups_to_word_doc(doc_obj):
     # Create the parent table model
@@ -885,9 +1335,8 @@ def add_security_groups_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_sgs}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_sgs}}", table)
 
 def add_sg_inbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
@@ -995,9 +1444,8 @@ def add_sg_inbound_entries_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_sg_in_entries}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_sg_in_entries}}", table)
 
 def add_sg_outbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
@@ -1105,9 +1553,8 @@ def add_sg_outbound_entries_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_sg_out_entries}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_sg_out_entries}}", table)
 
 def add_internet_gateways_to_word_doc(doc_obj):
     # Create the parent table model
@@ -1158,9 +1605,8 @@ def add_internet_gateways_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_igws}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_igws}}", table)
 
 def add_egress_only_internet_gateways_to_word_doc(doc_obj):
     # Create the parent table model
@@ -1211,9 +1657,8 @@ def add_egress_only_internet_gateways_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_eigws}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_eigws}}", table)
 
 def add_nat_gateways_to_word_doc(doc_obj):
     # Create the parent table model
@@ -1290,9 +1735,8 @@ def add_nat_gateways_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_ngws}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_ngws}}", table)
 
 def add_endpoint_services_to_word_doc(doc_obj):
     # Create the parent table model
@@ -1320,9 +1764,8 @@ def add_endpoint_services_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Endpoint Services Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_endpoint_services}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_endpoint_services}}", table)
 
 def add_endpoints_to_word_doc(doc_obj):
     # Create the parent table model
@@ -1381,9 +1824,8 @@ def add_endpoints_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Endpoints Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_endpoints}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_endpoints}}", table)
 
 def add_vpc_peerings_to_word_doc(doc_obj):
     # Create the base table model
@@ -1526,9 +1968,8 @@ def add_transit_gateways_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Transit Gateways Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_tgws}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_tgws}}", table)
 
 def add_transit_gateway_routes_to_word_doc(doc_obj):
     # Create the parent table model
@@ -1577,9 +2018,8 @@ def add_transit_gateway_routes_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Transit Gateway Routes Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_tgw_routes}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_tgw_routes}}", table)
 
 def add_vpn_customer_gateways_to_word(doc_obj):
     # Create the parent table model
@@ -1635,9 +2075,8 @@ def add_vpn_customer_gateways_to_word(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no Prefix Lists at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Customer Gateways attached to transit gateways present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_vpn_cgws}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_vpn_cgws}}", table)
 
 def add_vpn_tgw_connections_to_word(doc_obj):
     # Create the parent table model
@@ -1708,9 +2147,8 @@ def add_vpn_tgw_connections_to_word(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no Prefix Lists at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPN Transit Gateway Connections present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_vpn_s2s}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_vpn_s2s}}", table)
 
 def add_vpn_gateways_to_word_doc(doc_obj):
     # Create the parent table model
@@ -1847,9 +2285,8 @@ def add_vpn_gateways_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_vpn_vpgs}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_vpn_vpgs}}", table)
 
 def add_direct_connect_gateways_to_word_doc(doc_obj):
     # Create the parent table model
@@ -2001,9 +2438,8 @@ def add_load_balancers_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_load_balancers}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_load_balancers}}", table)
 
 def add_load_balancer_targets_to_word_doc(doc_obj):
     # Create the parent table model
@@ -2108,9 +2544,8 @@ def add_load_balancer_targets_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_lb_target_groups}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_lb_target_groups}}", table)
 
 def add_instances_to_word_doc(doc_obj):
     # Create the parent table model
@@ -2197,12 +2632,11 @@ def add_instances_to_word_doc(doc_obj):
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPCs Present"}]}]})
-    else:
-        table = build_table(doc_obj, parent_model)
-        replace_placeholder_with_table(doc_obj, "{{py_ec2_inst}}", table)
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_ec2_inst}}", table)
 
 def build_word_document():
-    rprint("\n\n[yellow]STEP 11/12: BUILD WORD DOCUMENT OBJECT")
+    rprint("\n\n[yellow]STEP 11/13: BUILD WORD DOCUMENT OBJECT")
     doc_obj = create_word_obj_from_template(word_template)
     rprint("[yellow]    Creating VPC table...")
     add_vpcs_to_word_doc(doc_obj)
@@ -2259,7 +2693,7 @@ def build_word_document():
     return doc_obj
 
 def write_artifacts_to_filesystem(doc_obj):
-    rprint(f"\n\n[yellow]STEP 12/12: WRITING ARTIFACTS TO FILE SYSTEM FOR {topology['account']['alias']}")
+    rprint(f"\n\n[yellow]STEP 13/13: WRITING ARTIFACTS TO FILE SYSTEM FOR {topology['account']['alias']}")
     rprint("    [yellow]Saving Word document...")
     # Get Platform
     system_os = platform.system().lower()
@@ -2292,7 +2726,7 @@ def write_artifacts_to_filesystem(doc_obj):
 
 if __name__ == "__main__":
     try:
-        if not args.skip_topology: # If we don't supply the -t flag, we need to build the topology by actively reach ing out to the AWS API
+        if not args.skip_topology: # If we don't supply the -t flag, we need to build the topology by actively reaching out to the AWS API
             ec2 = boto3.client('ec2', verify=False)
             available_regions = get_regions()
             topology = {}
@@ -2307,34 +2741,34 @@ if __name__ == "__main__":
 
             add_regions_to_topology()
 
-            rprint("\n[yellow]STEP 1/12: DISCOVER REGION VPCS")
+            rprint("\n[yellow]STEP 1/13: DISCOVER REGION VPCS")
             add_vpcs_to_topology()
 
-            rprint("\n\n[yellow]STEP 2/12: DISCOVER VPC NETWORK ELEMENTS")
+            rprint("\n\n[yellow]STEP 2/13: DISCOVER VPC NETWORK ELEMENTS")
             add_network_elements_to_vpcs()
 
-            rprint("\n[yellow]STEP 3/12: DISCOVER REGION PREFIX LISTS")
+            rprint("\n[yellow]STEP 3/13: DISCOVER REGION PREFIX LISTS")
             add_prefix_lists_to_topology()
 
-            rprint("\n[yellow]STEP 4/12: DISCOVER REGION VPN CUSTOMER GATEWAYS")
+            rprint("\n[yellow]STEP 4/13: DISCOVER REGION VPN CUSTOMER GATEWAYS")
             add_vpn_customer_gateways_to_topology()
 
-            rprint("\n[yellow]STEP 5/12: DISCOVER REGION VPN CONNECTIONS ATTACHED TO TRANSIT GATEAWAYS")
+            rprint("\n[yellow]STEP 5/13: DISCOVER REGION VPN CONNECTIONS ATTACHED TO TRANSIT GATEAWAYS")
             add_vpn_tgw_connections_to_topology()
 
-            rprint("\n[yellow]STEP 6/12: DISCOVER REGION VPC ENDPOINT SERVICES")
+            rprint("\n[yellow]STEP 6/13: DISCOVER REGION VPC ENDPOINT SERVICES")
             add_endpoint_services_to_topology()
 
-            rprint("\n\n[yellow]STEP 7/12: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
+            rprint("\n\n[yellow]STEP 7/13: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
             add_vpc_peering_connections_to_topology()
 
-            rprint("\n\n[yellow]STEP 8/12: DISCOVERING REGION TRANSIT GATEWAYS")
+            rprint("\n\n[yellow]STEP 8/13: DISCOVERING REGION TRANSIT GATEWAYS")
             add_transit_gateways_to_topology()
 
-            rprint("\n\n[yellow]STEP 9/12: DISCOVERING REGION TRANSIT GATEWAY ROUTES")
+            rprint("\n\n[yellow]STEP 9/13: DISCOVERING REGION TRANSIT GATEWAY ROUTES")
             add_transit_gateway_routes_to_topology()
 
-            rprint("\n\n[yellow]STEP 10/12: DISCOVERING DIRECT CONNECT")
+            rprint("\n\n[yellow]STEP 10/13: DISCOVERING DIRECT CONNECT")
             add_direct_connect_to_topology()
             topologies = [topology]
         else: # -t flag supplied so we know the topology already exists in a JSON file or files
@@ -2352,6 +2786,8 @@ if __name__ == "__main__":
             filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
 
             doc_obj = build_word_document()
+
+            perform_best_practices_analysis(doc_obj)
 
             write_artifacts_to_filesystem(doc_obj)
     except KeyboardInterrupt:
