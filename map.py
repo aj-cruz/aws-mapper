@@ -51,10 +51,10 @@ def create_word_obj_from_template(tfile):
         rprint(f"\n\n:x: [red]Could not open [blue]{tfile}[red]. Please make sure it exists and is a valid Microsoft Word document. Exiting...")
         sys.exit(1)
 
-def extract_name_from_aws_tags(tags):
-    # Extract the name from a list of AWS tags
+def extract_name_from_aws_tags(obj):
+    # Extract the name from a given object by searching the object's list of AWS tags
     try:
-        name = [tag['Value'] for tag in tags if tag['Key'] == "Name"][0]
+        name = [tag['Value'] for tag in obj['Tags'] if tag['Key'] == "Name"][0]
     except KeyError:
         # Object has no name
         name = "<unnamed>"
@@ -68,7 +68,7 @@ def get_subnet_name_by_id(source_subnet_id, source_vpc=None):
     if source_vpc:
         for subnet in source_vpc['subnets']:
             if subnet['SubnetId'] == source_subnet_id:
-                subnet_name = extract_name_from_aws_tags(subnet['Tags'])
+                subnet_name = extract_name_from_aws_tags(subnet)
                 break
     else:
         subnet_name = None
@@ -76,7 +76,7 @@ def get_subnet_name_by_id(source_subnet_id, source_vpc=None):
             for vpc in vpcs:
                 for subnet in vpc['subnets']:
                     if subnet['SubnetId'] == source_subnet_id:
-                        subnet_name = extract_name_from_aws_tags(subnet['Tags'])
+                        subnet_name = extract_name_from_aws_tags(subnet)
                         break
                 if subnet_name:
                     break
@@ -363,7 +363,7 @@ def add_transit_gateway_routes_to_topology():
                     )['Routes']]
                     tgw_routes.append({
                         "TransitGatewayRouteTableId": rt['TransitGatewayRouteTableId'],
-                        "TransitGatewayRouteTableName": extract_name_from_aws_tags(rt['Tags']),
+                        "TransitGatewayRouteTableName": extract_name_from_aws_tags(rt),
                         "Routes":routes
                     })
             except botocore.exceptions.ClientError as e:
@@ -575,13 +575,37 @@ def add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
 
+    tgw_results = {
+        "passed": 0,
+        "failed": 0
+    }
     if tgws:
         # Run best practice checks
         tgw_quantity_check = run_tgw_quantity_check(tgws)
+        if tgw_quantity_check['status'] == "pass":
+            tgw_results['passed'] += 1
+        else:
+            tgw_results['failed'] += 1
         unique_bgp_asn_check = run_unique_bgp_asn_check(tgws)
+        if unique_bgp_asn_check['status'] in ["pass","not-applicable"]:
+            tgw_results['passed'] += 1
+        else:
+            tgw_results['failed'] += 1
         one_net_acl_check = run_one_net_acl_check(tgws)
+        if one_net_acl_check['status'] == "pass":
+            tgw_results['passed'] += 1
+        else:
+            tgw_results['failed'] += 1
         net_acl_open_check = run_net_acl_open_check(one_net_acl_check)
+        if net_acl_open_check['status'] == "pass":
+            tgw_results['passed'] += 1
+        else:
+            tgw_results['failed'] += 1
         vpn_attachment_bgp_check = run_vpn_attachment_bgp_check(tgws)
+        if vpn_attachment_bgp_check['status'] == "pass":
+            tgw_results['passed'] += 1
+        else:
+            tgw_results['failed'] += 1
 
         # Create the tgw_quantity_check child table model
         child_model = deepcopy(word_table_models.best_practices_tbl)
@@ -651,6 +675,7 @@ def add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj):
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Transit Gateways Present"}]}]})
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_tgw_best_practices}}", table)
+    return tgw_results
 
 def add_vpn_best_practice_analysis_to_word_doc(doc_obj):
     def run_vpn_tunnel_status_check():
@@ -686,9 +711,17 @@ def add_vpn_best_practice_analysis_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
 
+    vpn_results = {
+        "passed": 0,
+        "failed": 0
+    }
     if vpns:
         # Run best practice checks
         vpn_tunnel_status_check = run_vpn_tunnel_status_check()
+        if vpn_tunnel_status_check['status'] == "pass":
+            vpn_results['passed'] += 1
+        else:
+            vpn_results['failed'] += 1
 
         # Create the _vpn_tunnel_status_check child table model
         child_model = deepcopy(word_table_models.best_practices_tbl)
@@ -706,6 +739,7 @@ def add_vpn_best_practice_analysis_to_word_doc(doc_obj):
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPNs Present"}]}]})
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_vpn_health}}", table)
+    return vpn_results
 
 def add_vpc_best_practice_analysis_to_word_doc(doc_obj):
     def run_empty_vpc_check():
@@ -717,7 +751,7 @@ def add_vpc_best_practice_analysis_to_word_doc(doc_obj):
                     fail_list.append({
                         "region": region,
                         "vpc_id": vpc['VpcId'],
-                        "vpc_name": extract_name_from_aws_tags(vpc['Tags'])
+                        "vpc_name": extract_name_from_aws_tags(vpc)
                     })
         # Create Best Practice Check Return Status
         if not fail_list:
@@ -735,12 +769,53 @@ def add_vpc_best_practice_analysis_to_word_doc(doc_obj):
             "results": test_results
         }
    
+    def run_multi_az_check():
+        test_description = "When you add subnets to your VPC to host your application, create them in multiple Availability Zones. https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-best-practices.html"
+        fail_list = []
+        for region, vpcs in filtered_topology.items():
+            for vpc in vpcs:
+                availability_zones = list(set([subnet['AvailabilityZone'] for subnet in vpc['subnets']]))
+                if len(availability_zones) == 1:
+                    fail_list.append({
+                        "region": region,
+                        "vpc_id": vpc['VpcId'],
+                        "vpc_name": extract_name_from_aws_tags(vpc)
+                    })
+        # Create Best Practice Check Return Status
+        if not fail_list:
+            test_status = "pass"
+            test_results = "All VPCs have subnets in two or more Availability Zones."
+        else:
+            test_status = "fail"
+            test_results = [
+                "The following VPCs have subnets in only one Availability Zone:",   
+            ] + [vpc['region'] + '/' + vpc['vpc_id'] + '(' + vpc['vpc_name'] + ')' for vpc in fail_list]
+
+        return {
+            "description": test_description,
+            "status": test_status,
+            "results": test_results
+        }
+
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
 
+    vpc_results = {
+        "passed": 0,
+        "failed": 0
+    }
     if len([vpc['VpcId'] for region, vpcs in filtered_topology.items() for vpc in vpcs]) > 0:
         # Run best practice checks
         empty_vpc_check = run_empty_vpc_check()
+        if empty_vpc_check['status'] == "pass":
+            vpc_results['passed'] += 1
+        else:
+            vpc_results['failed'] += 1
+        multi_az_check = run_multi_az_check()
+        if multi_az_check['status'] == "pass":
+            vpc_results['passed'] += 1
+        else:
+            vpc_results['failed'] += 1
 
         # Create the empty_vpc_check child table model
         child_model = deepcopy(word_table_models.best_practices_tbl)
@@ -753,11 +828,25 @@ def add_vpc_best_practice_analysis_to_word_doc(doc_obj):
         # Inject child model into parent model
         parent_model['table']['rows'].append({"cells":[child_model]})
 
+        # Create the multi_az_check child table model
+        child_model = deepcopy(word_table_models.best_practices_tbl)
+        # Inject a space between child tables
+        parent_model['table']['rows'].append({"cells":[]})
+        # Populate the child model with test data
+        header_color = green_spacer if multi_az_check['status'] == "pass" else red_spacer
+        child_model['table']['rows'][0]['cells'][0]['background'] = header_color
+        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"MULTI-AZ VPC CHECK: {multi_az_check['status'].upper()}"
+        child_model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = multi_az_check['description']
+        child_model['table']['rows'][2]['cells'][1]['paragraphs'][0]['text'] = multi_az_check['results']
+        # Inject child model into parent model
+        parent_model['table']['rows'].append({"cells":[child_model]})
+
     # Write parent table to Word
     if not parent_model['table']['rows']: # Completely Empty Table (no VPNs)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No VPNs Present"}]}]})
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_vpc_health}}", table)
+    return vpc_results
 
 def add_lb_best_practice_analysis_to_word_doc(doc_obj):
     def run_lb_target_health_check():
@@ -770,7 +859,7 @@ def add_lb_best_practice_analysis_to_word_doc(doc_obj):
                     for vpcs in filtered_topology.values():
                         for vpc in vpcs:
                             if vpc['VpcId'] == lbtg['lbtg']['VpcId']:
-                                vpc_name = extract_name_from_aws_tags(vpc['Tags'])
+                                vpc_name = extract_name_from_aws_tags(vpc)
                     fail_list.append({
                         "region": lbtg['region'],
                         "vpc_id": lbtg['lbtg']['VpcId'],
@@ -798,9 +887,17 @@ def add_lb_best_practice_analysis_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
 
+    lb_results = {
+        "passed": 0,
+        "failed": 0
+    }
     if len([vpc['VpcId'] for region, vpcs in filtered_topology.items() for vpc in vpcs]) > 0:
         # Run best practice checks
         lb_target_health_check = run_lb_target_health_check()
+        if lb_target_health_check['status'] == "pass":
+            lb_results['passed'] += 1
+        else:
+            lb_results['failed'] += 1
 
         # Create the lb_target_health_check child table model
         child_model = deepcopy(word_table_models.best_practices_tbl)
@@ -818,18 +915,71 @@ def add_lb_best_practice_analysis_to_word_doc(doc_obj):
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Load Balancer Targets Present"}]}]})
     table = build_table(doc_obj, parent_model)
     replace_placeholder_with_table(doc_obj, "{{py_lb_health}}", table)
+    return lb_results
 
-def perform_best_practices_analysis(doc_obj):
-    rprint("\n\n[yellow]STEP 12/13: PERFORM BEST PRACTICE ANALYSIS")
-    rprint("[yellow]    Performing Transit Gateway Best Practices/Health Analysis and writing to Word table...")
-    add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj)
-    rprint("[yellow]    Performing VPN Best Practices/Health Analysis and writing to Word table...")
-    add_vpn_best_practice_analysis_to_word_doc(doc_obj)
-    rprint("[yellow]    Performing VPC Best Practices/Health Analysis and writing to Word table...")
-    add_vpc_best_practice_analysis_to_word_doc(doc_obj)
-    rprint("[yellow]    Performing Load Balancer Best Practices/Health Analysis and writing to Word table...")
-    add_lb_best_practice_analysis_to_word_doc(doc_obj)
+def add_ec2_best_practice_analysis_to_word_doc(doc_obj):
+    def run_ec2_ena_enabled_check():
+        test_description = "Amazon EC2 provides enhanced networking capabilities through the Elastic Network Adapter (ENA). To use enhanced networking, you must install the required ENA module and enable ENA support. https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html"
+        fail_list = []
+        for instance in instances:
+            if not "EnaSupport" in instance['instance'] or not instance['instance']['EnaSupport']:
+                fail_list.append({
+                    "region": instance['region'],
+                    "vpc_id": instance['vpc_id'],
+                    "vpc_name": instance['vpc_name'],
+                    "instance_id": instance['instance']['InstanceId'],
+                    "instance_name": extract_name_from_aws_tags(instance['instance'])
+                })
+        # Create Best Practice Check Return Status
+        if not fail_list:
+            test_status = "pass"
+            test_results = "All EC2 instances have ENA Support enabled."
+        else:
+            test_status = "fail"
+            test_results = [
+                "The following EC2 Instances do not have ENA Support enabled:",   
+            ] + [instance['region'] + '/' + instance['vpc_id'] + '/' + instance['instance_id'] + '(' + instance['instance_name'] + ')' for instance in fail_list]
 
+        return {
+            "description": test_description,
+            "status": test_status,
+            "results": test_results
+        }
+
+    instances = [{"region":region,"vpc_id":vpc['VpcId'],"vpc_name":extract_name_from_aws_tags(vpc),"instance":instance} for region, vpcs in filtered_topology.items() for vpc in vpcs for instance in vpc['ec2_instances']]
+    
+    # Create the parent table model
+    parent_model = deepcopy(word_table_models.parent_tbl)
+
+    ec2_results = {
+        "passed": 0,
+        "failed": 0
+    }
+    if instances:
+        # Run best practice checks
+        ec2_ena_enabled_check = run_ec2_ena_enabled_check()
+        if ec2_ena_enabled_check['status'] == "pass":
+            ec2_results['passed'] += 1
+        else:
+            ec2_results['failed'] += 1
+
+        # Create the ec2_ena_enabled_check child table model
+        child_model = deepcopy(word_table_models.best_practices_tbl)
+        # Populate the child model with test data
+        header_color = green_spacer if ec2_ena_enabled_check['status'] == "pass" else red_spacer
+        child_model['table']['rows'][0]['cells'][0]['background'] = header_color
+        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"ENA SUPPORT ENABLED CHECK: {ec2_ena_enabled_check['status'].upper()}"
+        child_model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = ec2_ena_enabled_check['description']
+        child_model['table']['rows'][2]['cells'][1]['paragraphs'][0]['text'] = ec2_ena_enabled_check['results']
+        # Inject child model into parent model
+        parent_model['table']['rows'].append({"cells":[child_model]})
+
+    # Write parent table to Word
+    if not parent_model['table']['rows']: # Completely Empty Table (no VPNs)
+        parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No EC2 Instances Present"}]}]})
+    table = build_table(doc_obj, parent_model)
+    replace_placeholder_with_table(doc_obj, "{{py_inst_health}}", table)
+    return ec2_results
 # BUILD WORD TABLE FUNCTIONS
 def add_vpcs_to_word_doc(doc_obj):
     # Create the base table model
@@ -843,12 +993,7 @@ def add_vpcs_to_word_doc(doc_obj):
             row_color = alternating_row_color
         else:
             row_color = None
-        try: # Get VPC Name (from tag)
-            vpc_name = [tag['Value'] for tag in vpc['vpc']['Tags'] if tag['Key'] == "Name"][0]
-        except KeyError:
-            vpc_name = ""
-        except IndexError:
-            vpc_name = ""
+        vpc_name = extract_name_from_aws_tags(vpc['vpc'])
         # Get number of instances in this VPC
         inst_qty = str(len(vpc['vpc']['ec2_instances']))
         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":vpc['region']}]})
@@ -1751,7 +1896,7 @@ def add_endpoint_services_to_word_doc(doc_obj):
                     parent_model['table']['rows'].append({"cells": [{"paragraphs":[{"style":"No Spacing","text":""}]}]})
                 # Create Child table and populate header values
                 child_model = deepcopy(word_table_models.endpoint_services_tbl)
-                ep_svc_name = extract_name_from_aws_tags(epsvc['Tags'])
+                ep_svc_name = extract_name_from_aws_tags(epsvc)
                 if len(epsvc['ServiceType']) > 1: # This script assumes only a single service type, but Amazon returns a list (so there could be more). Warn if there are more.
                     rprint("\t[orange]WARNING: This script assumes a single service type but multiple detected. Data could be missing, please let the script author know about this condition.")
                 child_model['table']['rows'][0]['cells'][0]['paragraphs'].append({"style":"regularbold","text":f"ENDPOINT SERVICE NAME: {epsvc['ServiceName']}"})
@@ -1810,7 +1955,6 @@ def add_endpoints_to_word_doc(doc_obj):
                             ep_name = ""
                         # Build Subnet ID list and cross-reference Subnet Names
                         ep_subnets = [f"{subnet}({get_subnet_name_by_id(subnet,vpc)})" for subnet in ep['SubnetIds']]
-                        # ep_subnets = [f"{subnet}({extract_name_from_aws_tags(subnet2['Tags'])})" for subnet in ep['SubnetIds'] for subnet2 in vpc['subnets'] if subnet == subnet2['SubnetId']]
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep_name}]})
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['VpcEndpointId']}]})
                         this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":ep['VpcEndpointType']}]})
@@ -2588,16 +2732,21 @@ def add_instances_to_word_doc(doc_obj):
                             public_ip = inst['PublicIpAddress']
                         except KeyError:
                             public_ip = ""
+                        try: # GET ENA SUPPORT
+                            ena_support = "YES" if inst['EnaSupport'] else "NO"
+                        except KeyError:
+                            ena_support = "Not Compatible"
                         # Build word table rows & cells
-                        child_model['table']['rows'][0]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst_name})
-                        child_model['table']['rows'][0]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['ImageId']})
-                        child_model['table']['rows'][0]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['InstanceType']})
-                        child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst['Placement']['AvailabilityZone']})
-                        child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['PrivateIpAddress']})
-                        child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":public_ip})
-                        child_model['table']['rows'][2]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst['PlatformDetails']})
-                        child_model['table']['rows'][2]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['Architecture']})
-                        child_model['table']['rows'][2]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['State']['Name']})
+                        child_model['table']['rows'][0]['cells'][0]['paragraphs'][0]['text'] = f"INSTANCE ID: {inst['InstanceId']}"
+                        child_model['table']['rows'][1]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst_name})
+                        child_model['table']['rows'][1]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['ImageId']})
+                        child_model['table']['rows'][1]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":f"{inst['InstanceType']}/{ena_support}"})
+                        child_model['table']['rows'][2]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst['Placement']['AvailabilityZone']})
+                        child_model['table']['rows'][2]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['PrivateIpAddress']})
+                        child_model['table']['rows'][2]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":public_ip})
+                        child_model['table']['rows'][3]['cells'][1]['paragraphs'].append({"style":"No Spacing","text":inst['PlatformDetails']})
+                        child_model['table']['rows'][3]['cells'][3]['paragraphs'].append({"style":"No Spacing","text":inst['Architecture']})
+                        child_model['table']['rows'][3]['cells'][5]['paragraphs'].append({"style":"No Spacing","text":inst['State']['Name']})
                         # Add network interfaces to table
                         inst_label = inst_name if not inst_name == "" else inst['InstanceId']
                         child_model['table']['rows'].append({"cells":[{"background":green_spacer,"paragraphs": [{"style": "regularbold", "text": f"{inst_label} NETWORK INTERFACES"}]},{"merge":None},{"merge":None},{"merge":None},{"merge":None},{"merge":None}]})
@@ -2636,7 +2785,7 @@ def add_instances_to_word_doc(doc_obj):
     replace_placeholder_with_table(doc_obj, "{{py_ec2_inst}}", table)
 
 def build_word_document():
-    rprint("\n\n[yellow]STEP 11/13: BUILD WORD DOCUMENT OBJECT")
+    rprint("\n\n[yellow]STEP 11/14: BUILD WORD DOCUMENT OBJECT")
     doc_obj = create_word_obj_from_template(word_template)
     rprint("[yellow]    Creating VPC table...")
     add_vpcs_to_word_doc(doc_obj)
@@ -2692,8 +2841,54 @@ def build_word_document():
     add_instances_to_word_doc(doc_obj)
     return doc_obj
 
+def perform_best_practices_analysis(doc_obj):
+    rprint("\n\n[yellow]STEP 12/14: PERFORM BEST PRACTICE ANALYSIS")
+    rprint("[yellow]    Performing Transit Gateway Best Practices/Health Analysis and writing to Word table...")
+    tgw_results = add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj)
+    rprint("[yellow]    Performing VPN Best Practices/Health Analysis and writing to Word table...")
+    vpn_results = add_vpn_best_practice_analysis_to_word_doc(doc_obj)
+    rprint("[yellow]    Performing VPC Best Practices/Health Analysis and writing to Word table...")
+    vpc_results = add_vpc_best_practice_analysis_to_word_doc(doc_obj)
+    rprint("[yellow]    Performing Load Balancer Best Practices/Health Analysis and writing to Word table...")
+    lb_results = add_lb_best_practice_analysis_to_word_doc(doc_obj)
+    rprint("[yellow]    Performing EC2 Instance Best Practices/Health Analysis and writing to Word table...")
+    ec2_results = add_ec2_best_practice_analysis_to_word_doc(doc_obj)
+    return {
+        "tgw": tgw_results,
+        "vpn": vpn_results,
+        "vpc": vpc_results,
+        "lb": lb_results,
+        "ec2": ec2_results
+    }
+
+def create_account_dashboard(doc_obj, analysis_results):
+    rprint("\n\n[yellow]STEP 13/14: CREATE ACCOUNT DASHBOARD")
+    model = deepcopy(word_table_models.account_dashboard_tbl)
+    regions_in_use = [region for region, attributes in topology.items() if not region in non_region_topology_keys and (attributes['vpcs'] or attributes['transit_gateways'])]     
+    vpc_count = len([vpc['VpcId'] for vpcs in filtered_topology.values() for vpc in vpcs])
+    ec2_count = len([inst['InstanceId'] for vpcs in filtered_topology.values() for vpc in vpcs for inst in vpc['ec2_instances']])
+    model['table']['rows'][0]['cells'][1]['paragraphs'][0]['text'] = topology['account']['id']
+    model['table']['rows'][0]['cells'][4]['paragraphs'][0]['text'] = topology['account']['alias']
+    model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = regions_in_use
+    model['table']['rows'][1]['cells'][4]['paragraphs'][0]['text'] = f"{ec2_count} EC2 instances across {vpc_count} VPCs"
+    analysis_cells = []
+    tgw_background = green_spacer if analysis_results['tgw']['failed'] == 0 else red_spacer
+    analysis_cells.append({"background":tgw_background, "paragraphs":[{"style":"regularbold","text": f"{str(analysis_results['tgw']['passed'])} of {str(analysis_results['tgw']['passed'] + analysis_results['tgw']['failed'])} checks passed."}]})
+    analysis_cells.append({"merge":None})
+    vpn_background = green_spacer if analysis_results['vpn']['failed'] == 0 else red_spacer
+    analysis_cells.append({"background":vpn_background, "paragraphs":[{"style":"regularbold","text": f"{str(analysis_results['vpn']['passed'])} of {str(analysis_results['vpn']['passed'] + analysis_results['vpn']['failed'])} checks passed."}]})
+    vpc_background = green_spacer if analysis_results['vpc']['failed'] == 0 else red_spacer
+    analysis_cells.append({"background":vpc_background, "paragraphs":[{"style":"regularbold","text": f"{str(analysis_results['vpc']['passed'])} of {str(analysis_results['vpc']['passed'] + analysis_results['vpc']['failed'])} checks passed."}]})
+    lb_background = green_spacer if analysis_results['lb']['failed'] == 0 else red_spacer
+    analysis_cells.append({"background":lb_background, "paragraphs":[{"style":"regularbold","text": f"{str(analysis_results['lb']['passed'])} of {str(analysis_results['lb']['passed'] + analysis_results['lb']['failed'])} checks passed."}]})
+    ec2_background = green_spacer if analysis_results['ec2']['failed'] == 0 else red_spacer
+    analysis_cells.append({"background":ec2_background, "paragraphs":[{"style":"regularbold","text": f"{str(analysis_results['ec2']['passed'])} of {str(analysis_results['ec2']['passed'] + analysis_results['ec2']['failed'])} checks passed."}]})
+    model['table']['rows'].append({"cells":analysis_cells})
+    table = build_table(doc_obj, model)
+    replace_placeholder_with_table(doc_obj, "{{py_account_dashboard}}", table)
+
 def write_artifacts_to_filesystem(doc_obj):
-    rprint(f"\n\n[yellow]STEP 13/13: WRITING ARTIFACTS TO FILE SYSTEM FOR {topology['account']['alias']}")
+    rprint(f"\n\n[yellow]STEP 14/14: WRITING ARTIFACTS TO FILE SYSTEM FOR {topology['account']['alias']}")
     rprint("    [yellow]Saving Word document...")
     # Get Platform
     system_os = platform.system().lower()
@@ -2741,34 +2936,34 @@ if __name__ == "__main__":
 
             add_regions_to_topology()
 
-            rprint("\n[yellow]STEP 1/13: DISCOVER REGION VPCS")
+            rprint("\n[yellow]STEP 1/14: DISCOVER REGION VPCS")
             add_vpcs_to_topology()
 
-            rprint("\n\n[yellow]STEP 2/13: DISCOVER VPC NETWORK ELEMENTS")
+            rprint("\n\n[yellow]STEP 2/14: DISCOVER VPC NETWORK ELEMENTS")
             add_network_elements_to_vpcs()
 
-            rprint("\n[yellow]STEP 3/13: DISCOVER REGION PREFIX LISTS")
+            rprint("\n[yellow]STEP 3/14: DISCOVER REGION PREFIX LISTS")
             add_prefix_lists_to_topology()
 
-            rprint("\n[yellow]STEP 4/13: DISCOVER REGION VPN CUSTOMER GATEWAYS")
+            rprint("\n[yellow]STEP 4/14: DISCOVER REGION VPN CUSTOMER GATEWAYS")
             add_vpn_customer_gateways_to_topology()
 
-            rprint("\n[yellow]STEP 5/13: DISCOVER REGION VPN CONNECTIONS ATTACHED TO TRANSIT GATEAWAYS")
+            rprint("\n[yellow]STEP 5/14: DISCOVER REGION VPN CONNECTIONS ATTACHED TO TRANSIT GATEAWAYS")
             add_vpn_tgw_connections_to_topology()
 
-            rprint("\n[yellow]STEP 6/13: DISCOVER REGION VPC ENDPOINT SERVICES")
+            rprint("\n[yellow]STEP 6/14: DISCOVER REGION VPC ENDPOINT SERVICES")
             add_endpoint_services_to_topology()
 
-            rprint("\n\n[yellow]STEP 7/13: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
+            rprint("\n\n[yellow]STEP 7/14: DISCOVERING ACCOUNT VPC PEERING CONNECTIONS")
             add_vpc_peering_connections_to_topology()
 
-            rprint("\n\n[yellow]STEP 8/13: DISCOVERING REGION TRANSIT GATEWAYS")
+            rprint("\n\n[yellow]STEP 8/14: DISCOVERING REGION TRANSIT GATEWAYS")
             add_transit_gateways_to_topology()
 
-            rprint("\n\n[yellow]STEP 9/13: DISCOVERING REGION TRANSIT GATEWAY ROUTES")
+            rprint("\n\n[yellow]STEP 9/14: DISCOVERING REGION TRANSIT GATEWAY ROUTES")
             add_transit_gateway_routes_to_topology()
 
-            rprint("\n\n[yellow]STEP 10/13: DISCOVERING DIRECT CONNECT")
+            rprint("\n\n[yellow]STEP 10/14: DISCOVERING DIRECT CONNECT")
             add_direct_connect_to_topology()
             topologies = [topology]
         else: # -t flag supplied so we know the topology already exists in a JSON file or files
@@ -2787,7 +2982,9 @@ if __name__ == "__main__":
 
             doc_obj = build_word_document()
 
-            perform_best_practices_analysis(doc_obj)
+            analysis_results = perform_best_practices_analysis(doc_obj)
+
+            create_account_dashboard(doc_obj, analysis_results)
 
             write_artifacts_to_filesystem(doc_obj)
     except KeyboardInterrupt:

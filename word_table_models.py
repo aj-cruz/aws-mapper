@@ -1060,77 +1060,100 @@ ec2_inst_tbl = {
     "table": {
         "style": "plain",
         "rows": [
-            {
+            { # Row 0
                 "cells": [
+                    { # Cell 0
+                        "background": orange_spacer,
+                        "paragraphs": [{"style": "regularbold", "text": ""}]
+                    },
                     {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                    {
+                        "merge": None
+                    },
+                ]
+            },
+            { # Row 1
+                "cells": [
+                    { # Cell 0
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "NAME"}]
                     },
-                    {
+                    { # Cell 1
                         "paragraphs": []
                     },
-                    {
+                    { # Cell 2
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "AMI"}]
                     },
-                    {
+                    { # Cell 3
                         "paragraphs": []
                     },
-                    {
+                    { # Cell 4
                         "background": table_header_color,
-                        "paragraphs": [{"style": "regularbold", "text": "INST TYPE"}]
+                        "paragraphs": [{"style": "regularbold", "text": "INST TYPE / ENA SUPPORT"}]
                     },
-                    {
+                    { # Cell 5
                         "paragraphs": []
                     }
                 ]
             },
-            {
+            { # Row 2
                 "cells": [
-                    {
+                    { # Cell 0
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "AZ"}]
                     },
-                    {
+                    { # Cell 1
                         "paragraphs": []
                     },
-                    {
+                    { # Cell 2
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "PRIV IP"}]
                     },
-                    {
+                    { # Cell 3
                         "paragraphs": []
                     },
-                    {
+                    { # Cell 4
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "PUB IP"}]
                     },
-                    {
+                    { # Cell 5
                         "paragraphs": []
                     }
                 ]
             },
-            {
+            { # Row 3
                 "cells": [
-                    {
+                    { # Cell 0
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "PLATFORM"}]
                     },
-                    {
+                    { # Cell 1
                         "paragraphs": []
                     },
-                    {
+                    { # Cell 2
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "ARCHITECTURE"}]
                     },
-                    {
+                    { # Cell 3
                         "paragraphs": []
                     },
-                    {
+                    { # Cell 4
                         "background": table_header_color,
                         "paragraphs": [{"style": "regularbold", "text": "STATE"}]
                     },
-                    {
+                    { # Cell 5
                         "paragraphs": []
                     }
                 ]
@@ -1637,3 +1660,86 @@ best_practices_tbl = {
             ]
 		}
 	}
+
+account_dashboard_tbl = {
+    "table": {
+        "style": "plain",
+        "rows": [
+            { # Row 0
+                "cells": [
+                    { # Cell 0
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ACCOUNT ID"}]
+                    },
+                    { # Cell 1
+                        "paragraphs": [{"style": "No Spacing", "text": ""}]
+                    },
+                    { # Cell 2
+                        "merge": None
+                    },
+                    { # Cell 3
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "ACCOUNT ALIAS"}]
+                    },
+                    { # Cell 4
+                        "paragraphs": [{"style": "No Spacing", "text": ""}]
+                    },
+                    { # Cell 5
+                        "merge": None
+                    }
+                ]
+            },
+            { # Row 1
+                "cells": [
+                    { # Cell 0
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "REGIONS IN USE"}]
+                    },
+                    { # Cell 1
+                        "paragraphs": [{"style": "No Spacing", "text": ""}]
+                    },
+                    { # Cell 2
+                        "merge": None
+                    },
+                    { # Cell 3
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "EC2/VPC COUNT"}]
+                    },
+                    { # Cell 4
+                        "paragraphs": [{"style": "No Spacing", "text": ""}]
+                    },
+                    { # Cell 5
+                        "merge": None
+                    }
+                ]
+            },
+            { # Row 2
+                "cells": [
+                    { # Cell 0
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "TRANSIT GATEWAY ANALYSIS"}]
+                    },
+                    { # Cell 1
+                        "merge": None
+                    },
+                    { # Cell 2
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "VPN ANALYSIS"}]
+                    },
+                    { # Cell 3
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "VPC ANALYSIS"}]
+                    },
+                    { # Cell 4
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "LOAD BALANCER ANALYSIS"}]
+                    },
+                    { # Cell 5
+                        "background": table_header_color,
+                        "paragraphs": [{"style": "regularbold", "text": "EC2 INST ANALYSIS"}]
+                    },
+                ]
+            }
+        ]
+    }
+}
