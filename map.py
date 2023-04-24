@@ -35,7 +35,6 @@ aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "1": "ICMPv4",
     "58": "ICMPv6"
 }
-# non_region_topology_keys = ["account", "vpc_peering_connections", "direct_connect_gateways"]
 
 # HELPER FUNCTIONS
 def datetime_converter(obj):
@@ -536,7 +535,7 @@ def add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj):
         fail_list = []
         vpn_attachments = [{"TransitGatewayId":gw['TransitGatewayId'],"VpnId":attachment['ResourceId']} for each in tgws for gws in each.values() for gw in gws for attachment in gw['attachments'] if attachment['ResourceType'] == "vpn"]
         for each in vpn_attachments:
-            each['vpn_connections'] = [conn for region, attributes in topology.items() if not region in non_region_topology_keys and "vpn_tgw_connections" in attributes for conn in attributes['vpn_tgw_connections'] if conn['VpnConnectionId'] == each['VpnId']]
+            each['vpn_connections'] = [conn for region, attributes in topology['regions'].items() if "vpn_tgw_connections" in attributes for conn in attributes['vpn_tgw_connections'] if conn['VpnConnectionId'] == each['VpnId']]
         for attachment in vpn_attachments:
             for vpn in attachment['vpn_connections']:
                 # Check if attachments have static routes (infer BGP disabled if so)
