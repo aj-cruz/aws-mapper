@@ -2,6 +2,7 @@ venv-*
 *.json
 *.log
 ~$*
-AWS As-Built.docx
+*.docx
+!template.docx
 __pycache__
 dcnet_msofficetools
