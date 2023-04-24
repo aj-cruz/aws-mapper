@@ -984,7 +984,7 @@ def add_vpcs_to_word_doc(doc_obj):
     # Create the base table model
     vpc_model = deepcopy(word_table_models.vpc_tbl)
     # Populate the table model with data
-    vpcs = [{"region":region,"vpc":vpc} for region, children in topology.items() if "vpcs" in children and children['vpcs'] for vpc in children['vpcs']]
+    vpcs = [{"region":region,"vpc":vpc} for region, children in topology['regions'].items() if "vpcs" in children and children['vpcs'] for vpc in children['vpcs']]
     for rownum, vpc in enumerate(sorted(vpcs, key = lambda d : d['region']), start=1):
         this_rows_cells = []
         # Shade every other row for readability
@@ -1137,7 +1137,7 @@ def add_prefix_lists_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, attributes in topology.items():
+    for region, attributes in topology['regions'].items():
         if isinstance(attributes, dict) and "prefix_lists" in attributes.keys():
             # Populate the table model with data
             if not attributes['prefix_lists']:
