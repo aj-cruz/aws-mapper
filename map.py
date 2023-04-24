@@ -292,7 +292,7 @@ def add_vpn_tgw_connections_to_topology():
             rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
 
 def add_endpoint_services_to_topology():
-    for region, v in topology['regions']:
+    for region in topology['regions']:
         rprint(f"    [yellow]Interrogating Region {region} for Endpoint Services...")
         ec2 = boto3.client('ec2',region_name=region,verify=False)
         try:
@@ -705,7 +705,7 @@ def add_vpn_best_practice_analysis_to_word_doc(doc_obj):
         }
 
     # Get VPN connections in vpn_tgw_connections dictionary key
-    vpns = [vpn for region, attributes in topology.items() if region not in non_region_topology_keys and "vpn_tgw_connections" in attributes for vpn in attributes['vpn_tgw_connections']]
+    vpns = [vpn for attributes in topology['regions'].values() if "vpn_tgw_connections" in attributes for vpn in attributes['vpn_tgw_connections']]
     # Add VPN connections in VPC VPN Gateways
     vpns += [vpn for vpcs in region_vpcs.values() for vpc in vpcs for vgw in vpc['vpn_gateways'] for vpn in vgw['connections']]
     # Create the parent table model
@@ -1887,8 +1887,8 @@ def add_endpoint_services_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, attributes in topology.items():
-        if not region in non_region_topology_keys and "endpoint_services" in attributes.keys(): # Ignore these dictionary keys, they are not a region, and only run if endpoint services exist
+    for region, attributes in topology['regions'].items():
+        if "endpoint_services" in attributes.keys() and attributes['endpoint_services']: # Only run if endpoint services exist
             # Create Table title (Region)
             parent_model['table']['rows'].append({"cells": [{"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]}]})
             for rownum, epsvc in enumerate(sorted(attributes['endpoint_services'], key = lambda d : d['ServiceType'][0]['ServiceType']), start=1):
@@ -2020,8 +2020,8 @@ def add_transit_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, attributes in topology.items():
-        if not region in non_region_topology_keys and attributes['transit_gateways']: # Ignore these dictionary keys, they are not a region, also don't run if there are no transit gateways in the region
+    for region, attributes in topology['regions'].items():
+        if "transit_gateways" in attributes.keys() and attributes['transit_gateways']: # Don't run if there are no transit gateways in the region
             # Create Table title (Region)
             parent_model['table']['rows'].append({"cells": [{"paragraphs":[{"style":"Heading 2","text":f"Region: {region}"}]}]})
             for rownum, tgw in enumerate(attributes['transit_gateways']):
@@ -2119,46 +2119,45 @@ def add_transit_gateway_routes_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, attributes in topology.items():
-        if not region in non_region_topology_keys: # Ignore these dictionary keys, they are not a region
-            if not attributes['transit_gateway_routes']:
-                pass
-            else:
-                for rt in attributes['transit_gateway_routes']:
-                    parent_model['table']['rows'].append(
-                        {"cells":[{"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / RT: {rt['TransitGatewayRouteTableName']} ({rt['TransitGatewayRouteTableId']})"}]}]}
-                    )
-                    # Build the child table
-                    child_model = deepcopy(word_table_models.tgw_routes_tbl)
-                    for rownum, route in enumerate(sorted(rt['Routes'], key = lambda d : d['Type']), start=1):
-                        this_rows_cells = []
-                        # Shade every other row for readability
-                        if not (rownum % 2) == 0:
-                            row_color = alternating_row_color
-                        else:
-                            row_color = None
-                        try: # Get Resource Type
-                            resource_type = route['TransitGatewayAttachments'][0]['ResourceType']
-                        except KeyError:
-                            resource_type = "-"
-                        try: # Get Resource ID
-                            resource_id = route['TransitGatewayAttachments'][0]['ResourceId']
-                        except KeyError:
-                            resource_id = "-"
-                        try: # Get Attachment ID
-                            attachment_id = route['TransitGatewayAttachments'][0]['TransitGatewayAttachmentId']
-                        except KeyError:
-                            attachment_id = "-"
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['DestinationCidrBlock']}]})
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":resource_type}]})
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":resource_id}]})
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attachment_id}]})
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Type']}]})
-                        this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['State']}]})
-                        # inject the row of cells into the table model
-                        child_model['table']['rows'].append({"cells":this_rows_cells})
-                    # Add the child table to the parent table
-                    parent_model['table']['rows'].append({"cells":[child_model]})
+    for region, attributes in topology['regions'].items():
+        if not attributes['transit_gateway_routes']:
+            pass
+        else:
+            for rt in attributes['transit_gateway_routes']:
+                parent_model['table']['rows'].append(
+                    {"cells":[{"paragraphs":[{"style":"Heading 2","text":f"Region: {region} / RT: {rt['TransitGatewayRouteTableName']} ({rt['TransitGatewayRouteTableId']})"}]}]}
+                )
+                # Build the child table
+                child_model = deepcopy(word_table_models.tgw_routes_tbl)
+                for rownum, route in enumerate(sorted(rt['Routes'], key = lambda d : d['Type']), start=1):
+                    this_rows_cells = []
+                    # Shade every other row for readability
+                    if not (rownum % 2) == 0:
+                        row_color = alternating_row_color
+                    else:
+                        row_color = None
+                    try: # Get Resource Type
+                        resource_type = route['TransitGatewayAttachments'][0]['ResourceType']
+                    except KeyError:
+                        resource_type = "-"
+                    try: # Get Resource ID
+                        resource_id = route['TransitGatewayAttachments'][0]['ResourceId']
+                    except KeyError:
+                        resource_id = "-"
+                    try: # Get Attachment ID
+                        attachment_id = route['TransitGatewayAttachments'][0]['TransitGatewayAttachmentId']
+                    except KeyError:
+                        attachment_id = "-"
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['DestinationCidrBlock']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":resource_type}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":resource_id}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":attachment_id}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['Type']}]})
+                    this_rows_cells.append({"background":row_color,"paragraphs":[{"style":"No Spacing","text":route['State']}]})
+                    # inject the row of cells into the table model
+                    child_model['table']['rows'].append({"cells":this_rows_cells})
+                # Add the child table to the parent table
+                parent_model['table']['rows'].append({"cells":[child_model]})
     # Model has been build, now convert it to a python-docx Word table object
     if not parent_model['table']['rows']: # Completely Empty Table (no VPCs at all)
         parent_model['table']['rows'].append({"cells":[{"paragraphs": [{"style": "No Spacing", "text": "No Transit Gateway Routes Present"}]}]})
@@ -2589,8 +2588,8 @@ def add_load_balancer_targets_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # First populate non-vpc Load Balancer Targers
-    for region, attributes in topology.items():
-        if not region in non_region_topology_keys and "non_vpc_lb_target_groups" in attributes.keys() and attributes['non_vpc_lb_target_groups']:
+    for region, attributes in topology['regions'].items():
+        if "non_vpc_lb_target_groups" in attributes.keys() and attributes['non_vpc_lb_target_groups']:
             parent_model['table']['rows'].append({"cells":[{"paragraphs":[{"style":"Heading 2","text":f"Region {region} (Non VPC Targets)"}]}]})
             for rownum, tg in enumerate(sorted(attributes['non_vpc_lb_target_groups'], key=lambda d : d['TargetType']), start=1):
                 if rownum > 1: # Inject space between Target Group tables
@@ -2864,7 +2863,7 @@ def perform_best_practices_analysis(doc_obj):
 def create_account_dashboard(doc_obj, analysis_results):
     rprint("\n\n[yellow]STEP 13/14: CREATE ACCOUNT DASHBOARD")
     model = deepcopy(word_table_models.account_dashboard_tbl)
-    regions_in_use = [region for region, attributes in topology.items() if not region in non_region_topology_keys and (attributes['vpcs'] or attributes['transit_gateways'])]     
+    regions_in_use = [region for region, attributes in topology['regions'].items() if attributes['vpcs'] or attributes['transit_gateways']]
     vpc_count = len([vpc['VpcId'] for vpcs in region_vpcs.values() for vpc in vpcs])
     ec2_count = len([inst['InstanceId'] for vpcs in region_vpcs.values() for vpc in vpcs for inst in vpc['ec2_instances']])
     model['table']['rows'][0]['cells'][1]['paragraphs'][0]['text'] = topology['account']['id']
