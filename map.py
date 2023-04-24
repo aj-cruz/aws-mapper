@@ -2167,7 +2167,7 @@ def add_vpn_customer_gateways_to_word(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, attributes in topology.items():
+    for region, attributes in topology['regions'].items():
         if isinstance(attributes, dict) and "customer_gateways" in attributes.keys():
             # Populate the table model with data
             if not attributes['customer_gateways']:
@@ -2224,7 +2224,7 @@ def add_vpn_tgw_connections_to_word(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, attributes in topology.items():
+    for region, attributes in topology['regions'].items():
         if isinstance(attributes, dict) and "vpn_tgw_connections" in attributes.keys():
             # Populate the table model with data
             if not attributes['vpn_tgw_connections']:
