@@ -1,10 +1,9 @@
 import boto3, botocore.exceptions, requests, sys, datetime, json, os, argparse, pathlib, datetime, platform
 from rich import print as rprint
-from rich import print_json as jprint
 from docx import Document
 from dcnet_msofficetools.docx_extensions import build_table, replace_placeholder_with_table
 from copy import deepcopy
-import word_table_models, word_title_page
+import word_table_models
 from urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
@@ -15,7 +14,7 @@ parser.add_argument(
     action='store_true',
     default=False,
     dest='skip_topology',
-    help='Skip bulding topology file from AWS API (it already exists in working directory)'
+    help='Skip bulding topology file from AWS API (use existing JSON topology files in working directory)'
     )
 args = parser.parse_args()
 
@@ -23,12 +22,12 @@ args = parser.parse_args()
 output_verbosity = 0   # 0 (Default) or 1 (Verbose)
 topology_folder = "topologies"
 word_template = "template.docx"
-table_header_color = "506279"
+table_header_color = "506279" # Dark Blue
 green_spacer = "8FD400" # CC Green/Lime
 red_spacer = "F12938" # CC Red
 orange_spacer = "FF7900" # CC Orange
-alternating_row_color = "D5DCE4"
-region_list = ["us-west-1"] # Leave blank to auto-pull and check all regions
+alternating_row_color = "D5DCE4" # Light Blue
+region_list = [] # Leave blank to auto-pull and check all regions
 aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "-1": "All Traffic",
     "6": "TCP",
@@ -36,7 +35,7 @@ aws_protocol_map = { # Maps AWS protocol numbers to user-friendly names
     "1": "ICMPv4",
     "58": "ICMPv6"
 }
-non_region_topology_keys = ["account", "vpc_peering_connections", "direct_connect_gateways"]
+# non_region_topology_keys = ["account", "vpc_peering_connections", "direct_connect_gateways"]
 
 # HELPER FUNCTIONS
 def datetime_converter(obj):
@@ -44,11 +43,12 @@ def datetime_converter(obj):
     if isinstance(obj, datetime.datetime):
         return obj.__str__()
 
-def create_word_obj_from_template(tfile):
+def create_word_obj_from_template(template_file):
+    # Attempt to read a Word document from filesystem and load it as a docx object
     try:
-        return Document(tfile)
+        return Document(template_file)
     except:
-        rprint(f"\n\n:x: [red]Could not open [blue]{tfile}[red]. Please make sure it exists and is a valid Microsoft Word document. Exiting...")
+        rprint(f"\n\n:x: [red]Could not open [blue]{template_file}[red]. Please make sure it exists and is a valid Microsoft Word document. Exiting...")
         sys.exit(1)
 
 def extract_name_from_aws_tags(obj):
@@ -72,7 +72,7 @@ def get_subnet_name_by_id(source_subnet_id, source_vpc=None):
                 break
     else:
         subnet_name = None
-        for region, vpcs in filtered_topology.items():
+        for vpcs in region_vpcs.values():
             for vpc in vpcs:
                 for subnet in vpc['subnets']:
                     if subnet['SubnetId'] == source_subnet_id:
@@ -93,8 +93,13 @@ def get_regions():
 
 def add_regions_to_topology():
     for region in available_regions:
-        topology[region] = {
+
+        topology['regions'][region] = {
             "vpcs": [],
+            "prefix_lists": [],
+            "customer_gateways": [],
+            "vpn_tgw_connections": [],
+            "endpoint_services": [],
             "transit_gateways": [],
             "instances": []
         }
@@ -202,102 +207,99 @@ def fingerprint_vpc(region, vpc, ec2):
     return False if "fail" in fingerprint_checks else True
 
 def add_vpcs_to_topology():
-    for region in topology:
-        if not region in non_region_topology_keys:
-            rprint(f"    [yellow]Interrogating Region {region} for VPCs...")
-            ec2 = boto3.client('ec2',region_name=region,verify=False)
-            elb = boto3.client('elbv2',region_name=region,verify=False)
-            try:
-                response = ec2.describe_vpcs()['Vpcs']
-                topology[region]["non_vpc_lb_target_groups"] = [tg for tg in elb.describe_target_groups()['TargetGroups'] if not "VpcId" in tg.keys()]
-                for tg in topology[region]["non_vpc_lb_target_groups"]:
-                    tg['HealthChecks'] = elb.describe_target_health(TargetGroupArn=tg['TargetGroupArn'])['TargetHealthDescriptions']
-                for vpc in response:
-                    is_empty_default_vpc = fingerprint_vpc(region, vpc, ec2)
-                    if not is_empty_default_vpc:
-                        topology[region]['vpcs'].append(vpc)
-            except botocore.exceptions.ClientError:
-                rprint(f":x: [red]Client Error reported for region {region}. Most likely no VPCs exist, continuing...")
+    for region in topology['regions']:
+        rprint(f"    [yellow]Interrogating Region {region} for VPCs...")
+        ec2 = boto3.client('ec2',region_name=region,verify=False)
+        elb = boto3.client('elbv2',region_name=region,verify=False)
+        try:
+            response = ec2.describe_vpcs()['Vpcs']
+            topology['regions'][region]["non_vpc_lb_target_groups"] = [tg for tg in elb.describe_target_groups()['TargetGroups'] if not "VpcId" in tg.keys()]
+            for tg in topology['regions'][region]["non_vpc_lb_target_groups"]:
+                tg['HealthChecks'] = elb.describe_target_health(TargetGroupArn=tg['TargetGroupArn'])['TargetHealthDescriptions']
+            for vpc in response:
+                is_empty_default_vpc = fingerprint_vpc(region, vpc, ec2)
+                if not is_empty_default_vpc:
+                    topology['regions'][region]['vpcs'].append(vpc)
+        except botocore.exceptions.ClientError:
+            rprint(f":x: [red]Client Error reported for region {region}. Most likely no VPCs exist, continuing...")
 
 def add_network_elements_to_vpcs():
-    for k, v in topology.items():
-        if not k in non_region_topology_keys: # Ignore these keys, all the rest are regions
-            ec2 = boto3.client('ec2',region_name=k,verify=False)
-            elb = boto3.client('elbv2',region_name=k,verify=False)
-            for vpc in v['vpcs']:
-                rprint(f"    [yellow]Discovering network elements (subnets, route tables, etc.) for {k}/{vpc['VpcId']}...")
-                subnets = [subnet for subnet in ec2.describe_subnets()['Subnets'] if subnet['VpcId'] == vpc['VpcId']]
-                vpc['subnets'] = subnets
-                route_tables = [rt for rt in ec2.describe_route_tables()['RouteTables'] if rt['VpcId'] == vpc['VpcId']]
-                vpc['route_tables'] = route_tables
-                igws = [igw for igw in ec2.describe_internet_gateways()['InternetGateways'] if igw['Attachments'][0]['VpcId'] == vpc['VpcId']]
-                vpc['internet_gateways'] = igws
-                natgws = [natgw for natgw in ec2.describe_nat_gateways()['NatGateways'] if natgw['VpcId'] == vpc['VpcId']]
-                vpc['nat_gateways'] = natgws
-                eigws = [eigw for eigw in ec2.describe_egress_only_internet_gateways()['EgressOnlyInternetGateways'] if eigw['Attachments'][0]['VpcId'] == vpc['VpcId']]
-                vpc['egress_only_internet_gateways'] = eigws
-                sec_grps = [sg for sg in ec2.describe_security_groups()['SecurityGroups'] if sg['VpcId'] == vpc['VpcId']]
-                vpc['security_groups'] = sec_grps
-                net_acls = [acl for acl in ec2.describe_network_acls()['NetworkAcls'] if acl['VpcId'] == vpc['VpcId']]
-                vpc['network_acls'] = net_acls
-                vpn_gateways = [gw for gw in ec2.describe_vpn_gateways()['VpnGateways'] for attch in gw['VpcAttachments'] if attch['VpcId'] == vpc['VpcId']]
-                vpc['vpn_gateways'] = vpn_gateways
-                for gw in vpn_gateways: # Add VPN connections to owner VPN gateways
-                    gw['connections'] = [conn for conn in ec2.describe_vpn_connections()['VpnConnections'] if conn['VpnGatewayId'] == gw['VpnGatewayId']]
-                    cgw_ids = [cgw['CustomerGatewayId'] for cgw in gw['connections']]
-                    gw['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways'] if cgw['CustomerGatewayId'] in cgw_ids]
-                ec2_instances = [inst for each in ec2.describe_instances()['Reservations'] for inst in each['Instances'] if "VpcId" in inst.keys() and inst['VpcId'] == vpc['VpcId']]
-                ec2_groups = [grp for each in ec2.describe_instances()['Reservations'] for grp in each['Groups']]
-                vpc['ec2_instances'] = ec2_instances
-                vpc['ec2_groups'] = ec2_groups
-                vpc['endpoints'] = [ep for ep in ec2.describe_vpc_endpoints()['VpcEndpoints'] if ep['VpcId'] == vpc['VpcId']]
-                vpc['load_balancers'] = [lb for lb in elb.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
-                for lb in vpc['load_balancers']:
-                    lb['Listeners'] = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])['Listeners']
-                vpc['lb_target_groups'] = [tg for tg in elb.describe_target_groups()['TargetGroups'] if "VpcId" in tg.keys() and tg['VpcId'] == vpc['VpcId']]
-                for tg in vpc['lb_target_groups']:
-                    tg['HealthChecks'] = elb.describe_target_health(TargetGroupArn=tg['TargetGroupArn'])['TargetHealthDescriptions']
+    for k, v in topology['regions'].items():
+        ec2 = boto3.client('ec2',region_name=k,verify=False)
+        elb = boto3.client('elbv2',region_name=k,verify=False)
+        for vpc in v['vpcs']:
+            rprint(f"    [yellow]Discovering network elements (subnets, route tables, etc.) for {k}/{vpc['VpcId']}...")
+            subnets = [subnet for subnet in ec2.describe_subnets()['Subnets'] if subnet['VpcId'] == vpc['VpcId']]
+            vpc['subnets'] = subnets
+            route_tables = [rt for rt in ec2.describe_route_tables()['RouteTables'] if rt['VpcId'] == vpc['VpcId']]
+            vpc['route_tables'] = route_tables
+            igws = [igw for igw in ec2.describe_internet_gateways()['InternetGateways'] if igw['Attachments'][0]['VpcId'] == vpc['VpcId']]
+            vpc['internet_gateways'] = igws
+            natgws = [natgw for natgw in ec2.describe_nat_gateways()['NatGateways'] if natgw['VpcId'] == vpc['VpcId']]
+            vpc['nat_gateways'] = natgws
+            eigws = [eigw for eigw in ec2.describe_egress_only_internet_gateways()['EgressOnlyInternetGateways'] if eigw['Attachments'][0]['VpcId'] == vpc['VpcId']]
+            vpc['egress_only_internet_gateways'] = eigws
+            sec_grps = [sg for sg in ec2.describe_security_groups()['SecurityGroups'] if sg['VpcId'] == vpc['VpcId']]
+            vpc['security_groups'] = sec_grps
+            net_acls = [acl for acl in ec2.describe_network_acls()['NetworkAcls'] if acl['VpcId'] == vpc['VpcId']]
+            vpc['network_acls'] = net_acls
+            vpn_gateways = [gw for gw in ec2.describe_vpn_gateways()['VpnGateways'] for attch in gw['VpcAttachments'] if attch['VpcId'] == vpc['VpcId']]
+            vpc['vpn_gateways'] = vpn_gateways
+            for gw in vpn_gateways: # Add VPN connections to owner VPN gateways
+                gw['connections'] = [conn for conn in ec2.describe_vpn_connections()['VpnConnections'] if conn['VpnGatewayId'] == gw['VpnGatewayId']]
+                cgw_ids = [cgw['CustomerGatewayId'] for cgw in gw['connections']]
+                gw['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways'] if cgw['CustomerGatewayId'] in cgw_ids]
+            ec2_instances = [inst for each in ec2.describe_instances()['Reservations'] for inst in each['Instances'] if "VpcId" in inst.keys() and inst['VpcId'] == vpc['VpcId']]
+            ec2_groups = [grp for each in ec2.describe_instances()['Reservations'] for grp in each['Groups']]
+            vpc['ec2_instances'] = ec2_instances
+            vpc['ec2_groups'] = ec2_groups
+            vpc['endpoints'] = [ep for ep in ec2.describe_vpc_endpoints()['VpcEndpoints'] if ep['VpcId'] == vpc['VpcId']]
+            vpc['load_balancers'] = [lb for lb in elb.describe_load_balancers()['LoadBalancers'] if lb['VpcId'] == vpc['VpcId']]
+            for lb in vpc['load_balancers']:
+                lb['Listeners'] = elb.describe_listeners(LoadBalancerArn=lb['LoadBalancerArn'])['Listeners']
+            vpc['lb_target_groups'] = [tg for tg in elb.describe_target_groups()['TargetGroups'] if "VpcId" in tg.keys() and tg['VpcId'] == vpc['VpcId']]
+            for tg in vpc['lb_target_groups']:
+                tg['HealthChecks'] = elb.describe_target_health(TargetGroupArn=tg['TargetGroupArn'])['TargetHealthDescriptions']
 
 def add_prefix_lists_to_topology():
-    for region in topology:
-        if not region in non_region_topology_keys:
-            rprint(f"    [yellow]Interrogating Region {region} for Prefix Lists...")
-            ec2 = boto3.client('ec2',region_name=region,verify=False)
-            try:
-                pls = [pl for pl in ec2.describe_prefix_lists()['PrefixLists']]
-                topology[region]['prefix_lists'] = pls
-            except botocore.exceptions.ClientError:
-                rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
+    for region in topology['regions']:
+        rprint(f"    [yellow]Interrogating Region {region} for Prefix Lists...")
+        ec2 = boto3.client('ec2',region_name=region,verify=False)
+        try:
+            pls = [pl for pl in ec2.describe_prefix_lists()['PrefixLists']]
+            topology['regions'][region]['prefix_lists'] = pls
+        except botocore.exceptions.ClientError:
+            rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
 
 def add_vpn_customer_gateways_to_topology():
-    for region, v in topology.items():
-        if not region in non_region_topology_keys: # Ignore these keys, all the rest are regions
-            rprint(f"    [yellow]Interrogating Region {region} for Customer Gateways...")
-            ec2 = boto3.client('ec2',region_name=region,verify=False)
-            try:
-                v['customer_gateways'] = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways']]
-            except botocore.exceptions.ClientError:
-                rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
+    for region in topology['regions']:
+        rprint(f"    [yellow]Interrogating Region {region} for Customer Gateways...")
+        ec2 = boto3.client('ec2',region_name=region,verify=False)
+        try:
+            cgws = [cgw for cgw in ec2.describe_customer_gateways()['CustomerGateways']]
+            topology['regions'][region]['customer_gateways'] = cgws
+        except botocore.exceptions.ClientError:
+            rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
 
 def add_vpn_tgw_connections_to_topology():
-    for region, v in topology.items():
-        if not region in non_region_topology_keys: # Ignore these keys, all the rest are regions
-            rprint(f"    [yellow]Interrogating Region {region} for VPN Connections Attached to Transit Gateways...")
-            ec2 = boto3.client('ec2',region_name=region,verify=False)
-            try:
-                v['vpn_tgw_connections'] = [conn for conn in ec2.describe_vpn_connections()['VpnConnections'] if "TransitGatewayId" in conn.keys()]
-            except botocore.exceptions.ClientError:
-                rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
+    for region in topology['regions']:
+        rprint(f"    [yellow]Interrogating Region {region} for VPN Connections Attached to Transit Gateways...")
+        ec2 = boto3.client('ec2',region_name=region,verify=False)
+        try:
+            tgw_vpns = [conn for conn in ec2.describe_vpn_connections()['VpnConnections'] if "TransitGatewayId" in conn.keys()]
+            topology['regions'][region]['vpn_tgw_connections'] = tgw_vpns
+        except botocore.exceptions.ClientError:
+            rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
 
 def add_endpoint_services_to_topology():
-    for region, v in topology.items():
-        if not region in non_region_topology_keys: # Ignore these keys, all the rest are regions
-            rprint(f"    [yellow]Interrogating Region {region} for Endpoint Services...")
-            ec2 = boto3.client('ec2',region_name=region,verify=False)
-            try:
-                v['endpoint_services'] = [svc for svc in ec2.describe_vpc_endpoint_services()['ServiceDetails'] if not svc['Owner'] == "amazon"]
-            except botocore.exceptions.ClientError:
-                rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
+    for region, v in topology['regions']:
+        rprint(f"    [yellow]Interrogating Region {region} for Endpoint Services...")
+        ec2 = boto3.client('ec2',region_name=region,verify=False)
+        try:
+            ep_svcs = [svc for svc in ec2.describe_vpc_endpoint_services()['ServiceDetails'] if not svc['Owner'] == "amazon"]
+            topology['regions'][region]['endpoint_services'] = ep_svcs
+        except botocore.exceptions.ClientError:
+            rprint(f":x: [red]Client Error reported for region {region}. Skipping...")
 
 def add_vpc_peering_connections_to_topology():
     pcx = [conn for conn in ec2.describe_vpc_peering_connections()['VpcPeeringConnections']]
@@ -316,62 +318,60 @@ def add_direct_connect_to_topology():
             conn['VirtualInterfaces'] = [vif for vif in virtual_interfaces if vif['connectionId'] == conn['connectionId']]
 
 def add_transit_gateways_to_topology():
-    for region in topology:
-        if not region in non_region_topology_keys: # Ignore these dictionary keys, they're not a region, all others are regions
-            rprint(f"    [yellow]Interrogating Region {region} for Transit Gateways...")
-            ec2 = boto3.client('ec2',region_name=region,verify=False)
-            try:
-                tgws = [tgw for tgw in ec2.describe_transit_gateways()['TransitGateways']]
-                for tgw in tgws:
-                    attachments = [attachment for attachment in ec2.describe_transit_gateway_attachments()['TransitGatewayAttachments'] if attachment['TransitGatewayId'] == tgw['TransitGatewayId']]
-                    for attachment in attachments: # Loop through VPC attachments and set ApplianceModeSupport option
-                        appliance_mode_support = "disable"
-                        if attachment['ResourceType'] == "vpc":
-                            attachment_options = ec2.describe_transit_gateway_vpc_attachments(Filters=[{'Name':'transit-gateway-attachment-id','Values':[attachment['TransitGatewayAttachmentId']]}])['TransitGatewayVpcAttachments'][0]
-                            appliance_mode_support = attachment_options['Options']['ApplianceModeSupport']
-                            attachment['SubnetIds'] = attachment_options['SubnetIds']
-                        else:
-                            attachment['SubnetIds'] = ["<NA>"]
-                        attachment['ApplianceModeSupport'] = appliance_mode_support
-                    tgw['attachments'] = attachments
-                    rts = [rt for rt in ec2.describe_transit_gateway_route_tables()['TransitGatewayRouteTables'] if rt['TransitGatewayId'] == tgw['TransitGatewayId']]
-                    tgw['route_tables'] = rts
-                topology[region]['transit_gateways'] = tgws
-            except botocore.exceptions.ClientError as e:
-                if "(UnauthorizedOperation)" in str(e):
-                    rprint(f"[red]Unauthorized Operation reported while pulling Transit Gateways from {region}. Skipping...")
-                else:
-                    print(e)
+    for region in topology['regions']:
+        rprint(f"    [yellow]Interrogating Region {region} for Transit Gateways...")
+        ec2 = boto3.client('ec2',region_name=region,verify=False)
+        try:
+            tgws = [tgw for tgw in ec2.describe_transit_gateways()['TransitGateways']]
+            for tgw in tgws:
+                attachments = [attachment for attachment in ec2.describe_transit_gateway_attachments()['TransitGatewayAttachments'] if attachment['TransitGatewayId'] == tgw['TransitGatewayId']]
+                for attachment in attachments: # Loop through VPC attachments and set ApplianceModeSupport option
+                    appliance_mode_support = "disable"
+                    if attachment['ResourceType'] == "vpc":
+                        attachment_options = ec2.describe_transit_gateway_vpc_attachments(Filters=[{'Name':'transit-gateway-attachment-id','Values':[attachment['TransitGatewayAttachmentId']]}])['TransitGatewayVpcAttachments'][0]
+                        appliance_mode_support = attachment_options['Options']['ApplianceModeSupport']
+                        attachment['SubnetIds'] = attachment_options['SubnetIds']
+                    else:
+                        attachment['SubnetIds'] = ["<NA>"]
+                    attachment['ApplianceModeSupport'] = appliance_mode_support
+                tgw['attachments'] = attachments
+                rts = [rt for rt in ec2.describe_transit_gateway_route_tables()['TransitGatewayRouteTables'] if rt['TransitGatewayId'] == tgw['TransitGatewayId']]
+                tgw['route_tables'] = rts
+            topology['regions'][region]['transit_gateways'] = tgws
+        except botocore.exceptions.ClientError as e:
+            if "(UnauthorizedOperation)" in str(e):
+                rprint(f"[red]Unauthorized Operation reported while pulling Transit Gateways from {region}. Skipping...")
+            else:
+                print(e)
 
 def add_transit_gateway_routes_to_topology():
-    for region in topology:
-       if not region in non_region_topology_keys: # Ignore these dictionary keys, they're not a region, all others are regions
-            rprint(f"    [yellow]Interrogating Region {region} for Transit Gateway Routes...")
-            ec2 = boto3.client('ec2',region_name=region,verify=False) 
-            tgw_routes = []
-            try:
-                tgw_rts = [rt for rt in ec2.describe_transit_gateway_route_tables()['TransitGatewayRouteTables']]
-                for rt in tgw_rts:
-                    routes = [route for route in ec2.search_transit_gateway_routes(
-                        TransitGatewayRouteTableId = rt['TransitGatewayRouteTableId'],
-                        Filters = [
-                            {
-                                "Name": "state",
-                                "Values": ["active","blackhole"]
-                            }
-                        ]
-                    )['Routes']]
-                    tgw_routes.append({
-                        "TransitGatewayRouteTableId": rt['TransitGatewayRouteTableId'],
-                        "TransitGatewayRouteTableName": extract_name_from_aws_tags(rt),
-                        "Routes":routes
-                    })
-            except botocore.exceptions.ClientError as e:
-                if "(UnauthorizedOperation)" in str(e):
-                    rprint(f"[red]Unauthorized Operation reported while pulling Transit Gateway Route Tables from {region}. Skipping...")
-                else:
-                    print(e)
-            topology[region]['transit_gateway_routes'] = tgw_routes
+    for region in topology['regions']:
+        rprint(f"    [yellow]Interrogating Region {region} for Transit Gateway Routes...")
+        ec2 = boto3.client('ec2',region_name=region,verify=False) 
+        tgw_routes = []
+        try:
+            tgw_rts = [rt for rt in ec2.describe_transit_gateway_route_tables()['TransitGatewayRouteTables']]
+            for rt in tgw_rts:
+                routes = [route for route in ec2.search_transit_gateway_routes(
+                    TransitGatewayRouteTableId = rt['TransitGatewayRouteTableId'],
+                    Filters = [
+                        {
+                            "Name": "state",
+                            "Values": ["active","blackhole"]
+                        }
+                    ]
+                )['Routes']]
+                tgw_routes.append({
+                    "TransitGatewayRouteTableId": rt['TransitGatewayRouteTableId'],
+                    "TransitGatewayRouteTableName": extract_name_from_aws_tags(rt),
+                    "Routes":routes
+                })
+        except botocore.exceptions.ClientError as e:
+            if "(UnauthorizedOperation)" in str(e):
+                rprint(f"[red]Unauthorized Operation reported while pulling Transit Gateway Route Tables from {region}. Skipping...")
+            else:
+                print(e)
+        topology['regions'][region]['transit_gateway_routes'] = tgw_routes
 
 # BEST PRACTICE CHECK FUNCTIONS
 def add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj):
@@ -436,7 +436,7 @@ def add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj):
             for subnet in subnets:
                 # Loop through all VPC Network ACLs and pull the Network ACL ID where this subnet is associated
                 found = False
-                for vpcs in filtered_topology.values():
+                for vpcs in region_vpcs.values():
                     for vpc in vpcs:
                         for netacl in vpc['network_acls']:
                             for association in netacl['Associations']:
@@ -487,7 +487,7 @@ def add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj):
         fail_list = []
         for tgw, vpc_dict in test_results['net_acls'].items():
             for vpc_id, nacl_list in vpc_dict.items():
-                vpc_dict = [{"region":region,"vpc":this_vpc} for region, vpcs in filtered_topology.items() for this_vpc in vpcs if this_vpc['VpcId'] == vpc_id][0]
+                vpc_dict = [{"region":region,"vpc":this_vpc} for region, vpcs in region_vpcs.items() for this_vpc in vpcs if this_vpc['VpcId'] == vpc_id][0]
                 for nacl in nacl_list:
                     ingress_entries = [entry for acl in vpc_dict['vpc']['network_acls'] if acl['NetworkAclId'] == nacl for entry in sorted(acl['Entries'], key = lambda d : d['RuleNumber']) if not entry['Egress']]
                     egress_entries = [entry for acl in vpc_dict['vpc']['network_acls'] if acl['NetworkAclId'] == nacl for entry in sorted(acl['Entries'], key = lambda d : d['RuleNumber']) if entry['Egress']]
@@ -571,7 +571,7 @@ def add_transit_gateway_best_practice_analysis_to_word_doc(doc_obj):
             "results": test_results
         }
 
-    tgws = [{region:attributes['transit_gateways']} for region, attributes in topology.items() if not region in non_region_topology_keys and attributes['transit_gateways']]
+    tgws = [{region:attributes['transit_gateways']} for region, attributes in topology['regions'].items() if attributes['transit_gateways']]
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
 
@@ -707,7 +707,7 @@ def add_vpn_best_practice_analysis_to_word_doc(doc_obj):
     # Get VPN connections in vpn_tgw_connections dictionary key
     vpns = [vpn for region, attributes in topology.items() if region not in non_region_topology_keys and "vpn_tgw_connections" in attributes for vpn in attributes['vpn_tgw_connections']]
     # Add VPN connections in VPC VPN Gateways
-    vpns += [vpn for vpcs in filtered_topology.values() for vpc in vpcs for vgw in vpc['vpn_gateways'] for vpn in vgw['connections']]
+    vpns += [vpn for vpcs in region_vpcs.values() for vpc in vpcs for vgw in vpc['vpn_gateways'] for vpn in vgw['connections']]
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
 
@@ -745,7 +745,7 @@ def add_vpc_best_practice_analysis_to_word_doc(doc_obj):
     def run_empty_vpc_check():
         test_description = "Report any VPCs with no EC2 instances."
         fail_list = []
-        for region, vpcs in filtered_topology.items():
+        for region, vpcs in region_vpcs.items():
             for vpc in vpcs:
                 if not vpc['ec2_instances']:
                     fail_list.append({
@@ -772,7 +772,7 @@ def add_vpc_best_practice_analysis_to_word_doc(doc_obj):
     def run_multi_az_check():
         test_description = "When you add subnets to your VPC to host your application, create them in multiple Availability Zones. https://docs.aws.amazon.com/vpc/latest/userguide/vpc-security-best-practices.html"
         fail_list = []
-        for region, vpcs in filtered_topology.items():
+        for region, vpcs in region_vpcs.items():
             for vpc in vpcs:
                 availability_zones = list(set([subnet['AvailabilityZone'] for subnet in vpc['subnets']]))
                 if len(availability_zones) == 1:
@@ -804,7 +804,7 @@ def add_vpc_best_practice_analysis_to_word_doc(doc_obj):
         "passed": 0,
         "failed": 0
     }
-    if len([vpc['VpcId'] for region, vpcs in filtered_topology.items() for vpc in vpcs]) > 0:
+    if len([vpc['VpcId'] for region, vpcs in region_vpcs.items() for vpc in vpcs]) > 0:
         # Run best practice checks
         empty_vpc_check = run_empty_vpc_check()
         if empty_vpc_check['status'] == "pass":
@@ -856,7 +856,7 @@ def add_lb_best_practice_analysis_to_word_doc(doc_obj):
             for target in lbtg['lbtg']['HealthChecks']:
                 if not target['TargetHealth']['State'] == "healthy":
                     # Get VPC Name
-                    for vpcs in filtered_topology.values():
+                    for vpcs in region_vpcs.values():
                         for vpc in vpcs:
                             if vpc['VpcId'] == lbtg['lbtg']['VpcId']:
                                 vpc_name = extract_name_from_aws_tags(vpc)
@@ -882,7 +882,7 @@ def add_lb_best_practice_analysis_to_word_doc(doc_obj):
             "results": test_results
         }
 
-    lbtgs = [{"region":region,"lbtg":lbtg} for region, vpcs in filtered_topology.items() for vpc in vpcs for lbtg in vpc['lb_target_groups']]
+    lbtgs = [{"region":region,"lbtg":lbtg} for region, vpcs in region_vpcs.items() for vpc in vpcs for lbtg in vpc['lb_target_groups']]
 
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
@@ -891,7 +891,7 @@ def add_lb_best_practice_analysis_to_word_doc(doc_obj):
         "passed": 0,
         "failed": 0
     }
-    if len([vpc['VpcId'] for region, vpcs in filtered_topology.items() for vpc in vpcs]) > 0:
+    if len([vpc['VpcId'] for region, vpcs in region_vpcs.items() for vpc in vpcs]) > 0:
         # Run best practice checks
         lb_target_health_check = run_lb_target_health_check()
         if lb_target_health_check['status'] == "pass":
@@ -946,7 +946,7 @@ def add_ec2_best_practice_analysis_to_word_doc(doc_obj):
             "results": test_results
         }
 
-    instances = [{"region":region,"vpc_id":vpc['VpcId'],"vpc_name":extract_name_from_aws_tags(vpc),"instance":instance} for region, vpcs in filtered_topology.items() for vpc in vpcs for instance in vpc['ec2_instances']]
+    instances = [{"region":region,"vpc_id":vpc['VpcId'],"vpc_name":extract_name_from_aws_tags(vpc),"instance":instance} for region, vpcs in region_vpcs.items() for vpc in vpcs for instance in vpc['ec2_instances']]
     
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
@@ -1011,7 +1011,7 @@ def add_route_tables_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1074,7 +1074,7 @@ def add_routes_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1176,7 +1176,7 @@ def add_subnets_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1239,7 +1239,7 @@ def add_network_acls_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1296,7 +1296,7 @@ def add_netacl_inbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1363,7 +1363,7 @@ def add_netacl_outbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1430,7 +1430,7 @@ def add_security_groups_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1487,7 +1487,7 @@ def add_sg_inbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1596,7 +1596,7 @@ def add_sg_outbound_entries_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1705,7 +1705,7 @@ def add_internet_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1757,7 +1757,7 @@ def add_egress_only_internet_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1809,7 +1809,7 @@ def add_nat_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -1916,7 +1916,7 @@ def add_endpoints_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -2298,7 +2298,7 @@ def add_vpn_gateways_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -2493,7 +2493,7 @@ def add_load_balancers_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -2629,7 +2629,7 @@ def add_load_balancer_targets_to_word_doc(doc_obj):
                 # Add the child table to the parent table
                 parent_model['table']['rows'].append({"cells":[child_model]})
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -2695,7 +2695,7 @@ def add_instances_to_word_doc(doc_obj):
     # Create the parent table model
     parent_model = deepcopy(word_table_models.parent_tbl)
     # Populate the table model with data
-    for region, vpcs in filtered_topology.items():
+    for region, vpcs in region_vpcs.items():
         if not vpcs:
             pass
         else:
@@ -2865,8 +2865,8 @@ def create_account_dashboard(doc_obj, analysis_results):
     rprint("\n\n[yellow]STEP 13/14: CREATE ACCOUNT DASHBOARD")
     model = deepcopy(word_table_models.account_dashboard_tbl)
     regions_in_use = [region for region, attributes in topology.items() if not region in non_region_topology_keys and (attributes['vpcs'] or attributes['transit_gateways'])]     
-    vpc_count = len([vpc['VpcId'] for vpcs in filtered_topology.values() for vpc in vpcs])
-    ec2_count = len([inst['InstanceId'] for vpcs in filtered_topology.values() for vpc in vpcs for inst in vpc['ec2_instances']])
+    vpc_count = len([vpc['VpcId'] for vpcs in region_vpcs.values() for vpc in vpcs])
+    ec2_count = len([inst['InstanceId'] for vpcs in region_vpcs.values() for vpc in vpcs for inst in vpc['ec2_instances']])
     model['table']['rows'][0]['cells'][1]['paragraphs'][0]['text'] = topology['account']['id']
     model['table']['rows'][0]['cells'][4]['paragraphs'][0]['text'] = topology['account']['alias']
     model['table']['rows'][1]['cells'][1]['paragraphs'][0]['text'] = regions_in_use
@@ -2923,11 +2923,16 @@ if __name__ == "__main__":
     try:
         if not args.skip_topology: # If we don't supply the -t flag, we need to build the topology by actively reaching out to the AWS API
             ec2 = boto3.client('ec2', verify=False)
-            available_regions = get_regions()
-            topology = {}
-            try: 
+            available_regions = get_regions() # Pull all regions the account has access to
+            topology = { # Create the Account topology skeleton
+                "account": None,
+                "regions": {},
+                "vpc_peering_connections": [],
+                "direct_connect_gateways": []
+            }
+            try: # Pull the account alias
                 account_alias = boto3.client('iam', verify=False).list_account_aliases()['AccountAliases'][0]
-            except IndexError:
+            except IndexError: # No alias configured
                 account_alias = ""
             topology['account'] = {
                 "id": boto3.client('sts', verify=False).get_caller_identity().get('Account'),
@@ -2970,16 +2975,18 @@ if __name__ == "__main__":
             # Build a list of topology files
             fp = pathlib.Path(os.getcwd())
             file_list = [f.name for f in fp.iterdir() if f.is_file() and f.name.endswith(".json")]
-            # Build a list of extracted topologies
+            # Extract all topologies from file system and store in a list
             topologies = []
             for file in file_list:
                 with open(file, "r") as f:
                     topologies.append(json.load(f))
 
+        # The topology is ready, now start parsing the topology data model to render Word tables
         for topology in topologies:
-            # Build a list of just regions and their VPCs (so we don't have to filter them every time we want to loop over region VPCs)
-            filtered_topology = {region:attributes['vpcs'] for region, attributes in topology.items() if not region in non_region_topology_keys}
+            # Build a dictionary of just regions and their VPCs (so we don't have to do a nested loop every time we want to loop over region VPCs)
+            region_vpcs = {region:attributes['vpcs'] for region, attributes in topology['regions'].items()}
 
+            # Populate the Word document with all the configuration data
             doc_obj = build_word_document()
 
             analysis_results = perform_best_practices_analysis(doc_obj)
